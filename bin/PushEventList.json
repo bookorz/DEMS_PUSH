@@ -1,0 +1,1 @@
+{EventName:"ES03",Items:[{FunctionName:"LastCriteria_S1",Position:"12",Lentgh:"4",StringMapping:[{Key:"NUM",Value:"N/A"}]},{FunctionName:"WaitCriteria_S1",Position:"8",Lentgh:"4",StringMapping:[{Key:"NUM",Value:"N/A"}]},{FunctionName:"StopBit_S1",Position:"0",Lentgh:"1",StringMapping:[{Key:"1",Value:"On"},{Key:"0",Value:"Off"}]}]}

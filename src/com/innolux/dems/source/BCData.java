@@ -22,11 +22,9 @@ public class BCData  {
 
 	public BCData(String _BCName, String _BCIP) {
 		BCName = _BCName;
-		if(BCName.equals("2FUPK200")){
-			BCIP = "172.20.10.175";
-		}else{
-			BCIP = _BCIP;
-		}
+		
+		BCIP = _BCIP;
+		
 		BCDB = new DBConnector("jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = "
 				+ _BCIP + ")(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME =ORCL)))", "innolux", "innoluxabc123");
 

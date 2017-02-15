@@ -9,20 +9,23 @@ import javax.ws.rs.core.MediaType;
 import javax.ws.rs.core.Response;
 import org.apache.log4j.Logger;
 import org.glassfish.jersey.client.ClientConfig;
-import org.glassfish.jersey.filter.LoggingFilter;
-
+import org.glassfish.jersey.client.ClientProperties;
 import com.innolux.dems.interfaces.CallBackInterface;
 
 public class WebService implements CallBackInterface {
 
 	private Logger logger = Logger.getLogger(this.getClass());
-	Client client = ClientBuilder.newClient(new ClientConfig().register(LoggingFilter.class));
-	 //WebTarget webTarget = client.target("http://localhost:14518").path("Home").path("SendSignalR");
-	WebTarget webTarget = client.target("http://10.56.195.221").path("Home").path("SendSignalR");
-	Invocation.Builder invocationBuilder = webTarget.request(MediaType.APPLICATION_JSON);
+	Invocation.Builder invocationBuilder = null;
 
 	public WebService() {
-
+		//ClientConfig cfg = new ClientConfig().register(LoggingFilter.class);
+		ClientConfig cfg = new ClientConfig();
+		cfg.property(ClientProperties.CONNECT_TIMEOUT, 10000);
+		cfg.property(ClientProperties.READ_TIMEOUT, 10000);
+		Client client = ClientBuilder.newClient(cfg);
+		 //WebTarget webTarget = client.target("http://localhost:14518").path("Home").path("SendSignalR");
+		WebTarget webTarget = client.target("http://10.56.195.221").path("Home").path("SendSignalR");
+		invocationBuilder = webTarget.request(MediaType.APPLICATION_JSON);
 	}
 
 	@Override
@@ -38,6 +41,7 @@ public class WebService implements CallBackInterface {
 				logger.info("post json string:" + jsonStr);
 
 				long processTime = System.currentTimeMillis();
+				
 				Response response = invocationBuilder.post(Entity.entity(jsonStr, MediaType.APPLICATION_JSON));
 				logger.debug("Process time:" + (System.currentTimeMillis() - processTime) + " jsonStr:" + jsonStr);
 				int statusCode = response.getStatus();

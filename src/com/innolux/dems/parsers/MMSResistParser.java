@@ -1,11 +1,14 @@
 package com.innolux.dems.parsers;
 
+import java.util.Vector;
+
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
 
 import com.innolux.dems.interfaces.CallBackInterface;
+import com.innolux.dems.interfaces.ParserInterface;
 
-public class MMSResistParser implements CallBackInterface {
+public class MMSResistParser implements ParserInterface {
 	private CallBackInterface sourceObj;
 	private String fab = "";
 	private Logger logger = Logger.getLogger(this.getClass());
@@ -16,14 +19,16 @@ public class MMSResistParser implements CallBackInterface {
 	}
 	
 	@Override
-	public void onRvMsg(String msg) {
+	public void onRvMsg(Vector<String> msgList) {
 		// TODO Auto-generated method stub
-		if (msg.indexOf("class=MMSResistInUseRep") == -1) {
-			return;
-		}
-		String jsonString = parseMsg(msg);
-		if (!jsonString.equals("")) {
-			sourceObj.onRvMsg(jsonString);
+		for(String msg:msgList){
+			if (msg.indexOf("class=MMSResistInUseRep") == -1) {
+				return;
+			}
+			String jsonString = parseMsg(msg);
+			if (!jsonString.equals("")) {
+				sourceObj.onRvMsg(jsonString);
+			}
 		}
 	}
 	

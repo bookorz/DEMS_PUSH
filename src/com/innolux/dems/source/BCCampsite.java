@@ -51,15 +51,16 @@ public class BCCampsite extends Thread{
 				eachBC.BCInfo.updateInlineMode();
 				eachBC.BCInfo.updatePortInfo();
 
+				JSONArray pushList = new JSONArray();
 				for(String key:eachBC.BCInfo.getLineInfoKeys()){
 					String value = eachBC.BCInfo.getLineInfo(key);
-			 
-			    	JSONObject SendJson = new JSONObject();
-					SendJson.put("fab", Fab);
-					SendJson.put("eqpName", key);
-					SendJson.put("eqpState", value);
-					sourceObj.onRvMsg(SendJson.toString());
-			    }					   
+					
+					JSONObject eachEqp = new JSONObject();
+					eachEqp.put("EquipmentName", key);
+					eachEqp.put("State",value);
+					pushList.put(eachEqp);				
+			    }			
+				
 				
 				for(int i = 0; i < PushEventList.size(); i++){
 					FunctionAttribute eachEvent = PushEventList.get(i);
@@ -82,21 +83,33 @@ public class BCCampsite extends Thread{
 								ItemData = eachEvent.StringMapping.get(ItemData);
 							}
 						}
-						JSONObject SendJson = new JSONObject();
-						SendJson.put("fab", Fab);
-						SendJson.put("eqpName", eachSubEQP+"."+eachEvent.ItemName);
-						SendJson.put("eqpState", ItemData);
-						sourceObj.onRvMsg(SendJson.toString());
+						
+						
+						JSONObject eachEqp = new JSONObject();
+						eachEqp.put("EquipmentName", eachSubEQP+"."+eachEvent.ItemName);
+						eachEqp.put("State",ItemData);
+						pushList.put(eachEqp);		
+						
 						String WIPInfo = eachBC.BCInfo.getWIP(eachSubEQP);
 						if(!WIPInfo.equals("")){
-							SendJson = new JSONObject();
-							SendJson.put("fab", Fab);
-							SendJson.put("eqpName", eachSubEQP+".WIP");
-							SendJson.put("eqpState", WIPInfo);
-							sourceObj.onRvMsg(SendJson.toString());
+
+							eachEqp = new JSONObject();
+							eachEqp.put("EquipmentName", eachSubEQP+".WIP");
+							eachEqp.put("State",WIPInfo);
+							pushList.put(eachEqp);			
 						}
 						
 					}
+				}				
+			
+				JSONObject SendJson = new JSONObject();
+				SendJson.put("fab", Fab);
+				SendJson.put("eqpStateList", pushList);
+				sourceObj.onRvMsg(SendJson.toString());
+				try{
+					Thread.sleep(10000);
+				}catch(Exception e){
+					logger.error("run EventData.sleep error:" + e.getMessage());
 				}
 			}
 		}

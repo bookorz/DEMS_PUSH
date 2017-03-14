@@ -16,6 +16,8 @@ public class WebService implements CallBackInterface {
 
 	private Logger logger = Logger.getLogger(this.getClass());
 	Invocation.Builder invocationBuilder = null;
+	
+	
 
 	public WebService() {
 		//ClientConfig cfg = new ClientConfig().register(LoggingFilter.class);
@@ -23,7 +25,7 @@ public class WebService implements CallBackInterface {
 		cfg.property(ClientProperties.CONNECT_TIMEOUT, 10000);
 		cfg.property(ClientProperties.READ_TIMEOUT, 10000);
 		Client client = ClientBuilder.newClient(cfg);
-		 //WebTarget webTarget = client.target("http://localhost:14518").path("Home").path("SendSignalR");
+	    //WebTarget webTarget = client.target("http://localhost:14518").path("Home").path("SendSignalR");
 		WebTarget webTarget = client.target("http://10.56.195.221").path("Home").path("SendSignalR");
 		invocationBuilder = webTarget.request(MediaType.APPLICATION_JSON);
 	}

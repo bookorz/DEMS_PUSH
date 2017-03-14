@@ -4,6 +4,7 @@ import com.innolux.dems.output.*;
 import com.innolux.dems.parsers.*;
 import com.innolux.dems.rvHandler.TibcoRvListener;
 import com.innolux.dems.source.BCCampsite;
+import com.innolux.dems.source.Mes;
 
 public class Push_Server{
 	public static void main(String[] args) {
@@ -17,6 +18,9 @@ public class Push_Server{
 		FromBCMMSMsg.start();
 		BCCampsite BC = new BCCampsite(new WebService(),"CF");
 		BC.start();
+		Mes ArrayMes = new Mes(new WebService(),"ARRAY");
+		ArrayMes.start();
+		
 	}
 
 	

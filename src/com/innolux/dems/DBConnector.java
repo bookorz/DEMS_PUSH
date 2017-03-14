@@ -37,13 +37,20 @@ public class DBConnector {
 		Statement stmt = null;
 		ResultSet rs = null;
 		try {
-			
+			try{
 			stmt = con.createStatement();
 
 			// step4 execute query
 			// SQL="select * from rfidcurrentsts t ";
 		    rs = stmt.executeQuery(SQL);
-
+			}catch(NullPointerException|SQLException e){
+				
+				logger.error("SQL Query failed, exception=" + e);
+				logger.error("Reconnect to DB:"+_connectionStr);
+				con = DriverManager.getConnection(_connectionStr, _User, _PWD);
+				stmt = con.createStatement();
+			    rs = stmt.executeQuery(SQL);
+			}
 			return rs;
 		} catch (Exception ex) {
 			logger.error("SQL Query failed, exception=" + ex);

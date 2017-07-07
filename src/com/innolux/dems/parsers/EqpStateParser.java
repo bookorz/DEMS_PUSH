@@ -1,13 +1,17 @@
 package com.innolux.dems.parsers;
 
+import java.util.Hashtable;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import com.innolux.dems.DBConnector;
 import com.innolux.dems.interfaces.CallBackInterface;
 import com.innolux.dems.interfaces.ParserInterface;
+import com.innolux.dems.source.CurrentState;
+import com.innolux.dems.source.Mes;
 
 public class EqpStateParser implements ParserInterface {
 	private CallBackInterface sourceObj;
@@ -17,6 +21,9 @@ public class EqpStateParser implements ParserInterface {
 	public EqpStateParser(CallBackInterface _sourceObj, String _fab) {
 		sourceObj = _sourceObj;
 		fab = _fab;
+		
+		
+		
 	}
 
 	@Override
@@ -32,8 +39,8 @@ public class EqpStateParser implements ParserInterface {
 	private String parseMsg(Vector<String> orgMsgList) {
 
 		try {
-			JSONArray pushList = new JSONArray();
-
+			
+		    Hashtable<String,String> tmpStateCol = new Hashtable<String,String>();
 			for (String orgMsg : orgMsgList) {
 				try {
 					if (orgMsg.indexOf("subEqpID=\"") == -1) {
@@ -55,15 +62,31 @@ public class EqpStateParser implements ParserInterface {
 						return "";
 					}
 
-					JSONObject eachEqp = new JSONObject();
-					eachEqp.put("EquipmentName", ID);
-					eachEqp.put("State", eqpStatus);
+					if(tmpStateCol.containsKey(ID)){
+						String lastState = tmpStateCol.get(ID);
+						if(!lastState.equals(eqpStatus)){
+							tmpStateCol.remove(ID);
+							tmpStateCol.put(ID, eqpStatus);
+						}
+					}else{
+						tmpStateCol.put(ID, eqpStatus);
+					}
 
-					pushList.put(eachEqp);
+					
 				} catch (Exception e) {
 					logger.error("parse error:" + e.getMessage());
 					return "";
 				}
+			}
+			
+			JSONArray pushList = new JSONArray();
+			
+			for(String eachKey:tmpStateCol.keySet()){
+				JSONObject eachEqp = new JSONObject();
+				String newStatus = tmpStateCol.get(eachKey);
+				eachEqp.put("EquipmentName", eachKey);
+				eachEqp.put("State", newStatus);
+				pushList.put(eachEqp);
 			}
 			JSONObject SendJson = new JSONObject();
 			SendJson.put("fab", fab);

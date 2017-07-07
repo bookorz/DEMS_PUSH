@@ -37,6 +37,8 @@ public class Mes extends Thread {
 			break;
 		}
 	}
+	
+	
 
 	public void run() {
 

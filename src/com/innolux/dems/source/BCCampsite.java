@@ -50,6 +50,7 @@ public class BCCampsite extends Thread{
 				eachBC.BCInfo.updateHostMode();
 				eachBC.BCInfo.updateInlineMode();
 				eachBC.BCInfo.updatePortInfo();
+				JSONObject SendJson = null;
 
 				JSONArray pushList = new JSONArray();
 				for(String key:eachBC.BCInfo.getLineInfoKeys()){
@@ -58,7 +59,14 @@ public class BCCampsite extends Thread{
 					JSONObject eachEqp = new JSONObject();
 					eachEqp.put("EquipmentName", key);
 					eachEqp.put("State",value);
-					pushList.put(eachEqp);				
+					pushList.put(eachEqp);			
+					if(pushList.length() > 50){
+						SendJson = new JSONObject();
+						SendJson.put("fab", Fab);
+						SendJson.put("eqpStateList", pushList);
+						sourceObj.onRvMsg(SendJson.toString());
+						pushList = new JSONArray();
+					}
 			    }			
 				
 				
@@ -98,11 +106,18 @@ public class BCCampsite extends Thread{
 							eachEqp.put("State",WIPInfo);
 							pushList.put(eachEqp);			
 						}
+						if(pushList.length() > 50){
+							SendJson = new JSONObject();
+							SendJson.put("fab", Fab);
+							SendJson.put("eqpStateList", pushList);
+							sourceObj.onRvMsg(SendJson.toString());
+							pushList = new JSONArray();
+						}
 						
 					}
 				}				
 			
-				JSONObject SendJson = new JSONObject();
+				SendJson = new JSONObject();
 				SendJson.put("fab", Fab);
 				SendJson.put("eqpStateList", pushList);
 				sourceObj.onRvMsg(SendJson.toString());

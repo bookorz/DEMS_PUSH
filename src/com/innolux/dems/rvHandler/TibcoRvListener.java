@@ -62,12 +62,14 @@ public class TibcoRvListener extends Thread implements TibrvMsgCallback {
 		// dispatch Tibrv events
 		while (true) {
 			try {
+				if(Tibrv.defaultQueue().getCount()==0){
+					
+					Thread.sleep(10000);
+					
+				}
 				Tibrv.defaultQueue().dispatch();
 				logger.info("RV queue count: " + Tibrv.defaultQueue().getCount() + " subject:" + subject);
-				if(Tibrv.defaultQueue().getCount()==0){
-					sourceObj.onRvMsg(msgCol);
-					Thread.sleep(10000);
-				}
+				
 				
 			} catch (TibrvException e) {
 				logger.error("Exception dispatching default queue: " + e);
@@ -89,7 +91,11 @@ public class TibcoRvListener extends Thread implements TibrvMsgCallback {
 
 				//sourceObj.onRvMsg(data);
 				msgCol.add(data);
-
+				if(Tibrv.defaultQueue().getCount()==0){
+					sourceObj.onRvMsg(msgCol);
+				
+					msgCol.clear();
+				}
 			}
 		} catch (Exception e) {
 			logger.error("onMsg: " + e + " subject:"+subject+" msg:"+data);

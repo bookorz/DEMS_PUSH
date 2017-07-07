@@ -10,11 +10,14 @@ import org.apache.log4j.Logger;
 
 import com.innolux.dems.DBConnector;
 
-public class BCData  {
+public class BCData {
 	private Logger logger = Logger.getLogger(this.getClass());
 	private Hashtable<String, String> Events = new Hashtable<String, String>();
+	private Hashtable<String, String> EventChangeList = new Hashtable<String, String>();
 	private Hashtable<String, String> WIP = new Hashtable<String, String>();
+	private Hashtable<String, String> WIPChangeList = new Hashtable<String, String>();
 	private Hashtable<String, String> LineInfo = new Hashtable<String, String>();
+	private Hashtable<String, String> LineInfoChangeList = new Hashtable<String, String>();
 	public Vector<String> SubEQPList = new Vector<String>();
 	DBConnector BCDB = null;
 	public String BCName = "";
@@ -22,30 +25,31 @@ public class BCData  {
 
 	public BCData(String _BCName, String _BCIP) {
 		BCName = _BCName;
-		
+
 		BCIP = _BCIP;
-		
+
 		BCDB = new DBConnector("jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = "
 				+ _BCIP + ")(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME =ORCL)))", "innolux", "innoluxabc123");
 
 	}
 
-//	public void run() {
-//		long lastTime = 0;
-//		while (true) {
-//			if (System.currentTimeMillis() - lastTime > 5000) {
-//				this.updateEvent();
-//				this.updateWIPCount();
-//				lastTime = System.currentTimeMillis();
-//			}
-//		}
-//	}
+	// public void run() {
+	// long lastTime = 0;
+	// while (true) {
+	// if (System.currentTimeMillis() - lastTime > 5000) {
+	// this.updateEvent();
+	// this.updateWIPCount();
+	// lastTime = System.currentTimeMillis();
+	// }
+	// }
+	// }
 
 	public void updateWIPCount() {
 
 		ResultSet rs = null;
 		String SQL = "select subeqid, WMSYS.WM_CONCAT(count)count" + " from (select t.hostsubeqid subeqid,"
-				+ "             nvl2(t.currentcstid," + "'[' || t.currentcstid ||'(' || substr(t.hostportid,instr(t.hostportid,'.')+1) || ')]=' ||"
+				+ "             nvl2(t.currentcstid,"
+				+ "'[' || t.currentcstid ||'(' || substr(t.hostportid,instr(t.hostportid,'.')+1) || ')]=' ||"
 				+ "                  to_char(count(t.hostsubeqid))," + "                  case"
 				+ "                    when t.bufferno = '0' then"
 				+ "                     '[IN EQP]=' || to_char(count(t.hostsubeqid))" + "                    else"
@@ -56,11 +60,17 @@ public class BCData  {
 		rs = BCDB.Query(SQL);
 
 		try {
+			EventChangeList.clear();
 			while (rs.next()) {
 				synchronized (WIP) {
+					
 					if (WIP.containsKey(rs.getString("subeqid"))) {
-						WIP.remove(rs.getString("subeqid"));
-						WIP.put(rs.getString("subeqid"), rs.getString("count"));
+						if (!WIP.get(rs.getString("subeqid")).equals(rs.getString("count"))) {
+							WIP.remove(rs.getString("subeqid"));
+							WIP.put(rs.getString("subeqid"), rs.getString("count"));
+							
+						}
+
 					} else {
 						WIP.put(rs.getString("subeqid"), rs.getString("count"));
 					}
@@ -108,29 +118,22 @@ public class BCData  {
 			}
 		}
 	}
-	public void updatePortInfo(){
+
+	public void updatePortInfo() {
 		ResultSet rs = null;
 		String SQL = "select node.hostsubeqid || '.' || port.hostportid || '.CSTID' subeqpid,"
-				  +"      to_char(substr(plc.outputdata, (port.bcportno - 1) * 20 + 301, 20)) state"
-				  +" from main_bc_line t, main_bc_node node, main_bc_port port, plcdata plc"
-				+" where t.hostlineid = '"+BCName+"'"
-				  +"  and t.bcno = port.bcno"
-				  +"  and t.bclineno = port.bclineno"
-				  +"  and t.fabtype = port.fabtype"
-				  +"  and t.bcno = plc.bcno"
-				  +"  and t.bclineno = plc.bclineno"
-				  +"  and t.fabtype = plc.fabtype"
-				  +"  and t.bcno = node.bcno"
-				  +"  and t.bclineno = node.bclineno"
-				  +"  and t.fabtype = node.fabtype"
-				  +"  and port.nodeno = node.nodeno"
-				  +"  and plc.devicetype = '1'";
+				+ "      to_char(substr(plc.outputdata, (port.bcportno - 1) * 20 + 301, 20)) state"
+				+ " from main_bc_line t, main_bc_node node, main_bc_port port, plcdata plc" + " where t.hostlineid = '"
+				+ BCName + "'" + "  and t.bcno = port.bcno" + "  and t.bclineno = port.bclineno"
+				+ "  and t.fabtype = port.fabtype" + "  and t.bcno = plc.bcno" + "  and t.bclineno = plc.bclineno"
+				+ "  and t.fabtype = plc.fabtype" + "  and t.bcno = node.bcno" + "  and t.bclineno = node.bclineno"
+				+ "  and t.fabtype = node.fabtype" + "  and port.nodeno = node.nodeno" + "  and plc.devicetype = '1'";
 
 		rs = BCDB.Query(SQL);
 		try {
 			while (rs.next()) {
 				String key = rs.getString("subeqpid");
-			    String value = rs.getString("state").trim();
+				String value = rs.getString("state").trim();
 				synchronized (LineInfo) {
 					if (LineInfo.containsKey(key)) {
 						LineInfo.remove(key);
@@ -154,30 +157,21 @@ public class BCData  {
 			}
 		}
 	}
-	
-	public void updateHostMode(){
+
+	public void updateHostMode() {
 		ResultSet rs = null;
-		String SQL = "select t.hostlineid || '.HostMode' subeqpid,"
-				  +"      case"
-				  +"        when to_char(substr(plc.outputdata, 28, 1)) = '0' then"
-				  +"         'Off Line'"
-				  +"        when to_char(substr(plc.outputdata, 28, 1)) = '1' then"
-				  +"         'Online Control'"
-				  +"        else"
-				  +"         'Online Monitor'"
-				  +"      end state"
-				  +" from main_bc_line t, plcdata plc"
-				+" where t.hostlineid = '"+BCName+"'"
-				  +"  and t.bcno = plc.bcno"
-				  +"  and t.bclineno = plc.bclineno"
-				  +"  and t.fabtype = plc.fabtype"
-				  +"  and plc.devicetype = '1'";
+		String SQL = "select t.hostlineid || '.HostMode' subeqpid," + "      case"
+				+ "        when to_char(substr(plc.outputdata, 28, 1)) = '0' then" + "         'Off Line'"
+				+ "        when to_char(substr(plc.outputdata, 28, 1)) = '1' then" + "         'Online Control'"
+				+ "        else" + "         'Online Monitor'" + "      end state" + " from main_bc_line t, plcdata plc"
+				+ " where t.hostlineid = '" + BCName + "'" + "  and t.bcno = plc.bcno"
+				+ "  and t.bclineno = plc.bclineno" + "  and t.fabtype = plc.fabtype" + "  and plc.devicetype = '1'";
 
 		rs = BCDB.Query(SQL);
 		try {
 			while (rs.next()) {
 				String key = rs.getString("subeqpid");
-			    String value = rs.getString("state");
+				String value = rs.getString("state");
 				synchronized (LineInfo) {
 					if (LineInfo.containsKey(key)) {
 						LineInfo.remove(key);
@@ -201,42 +195,29 @@ public class BCData  {
 			}
 		}
 	}
-	
-	public void updateInlineMode(){
+
+	public void updateInlineMode() {
 		ResultSet rs = null;
-		String SQL = "select t.hostlineid || '.InlineMode' subeqpid,"
-				  +"      case"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '0' then"
-				  +"         'Normal'"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '1' then"
-				  +"         'Sort'"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '2' then"
-				  +"         'Dummy Laser Mode'"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '3' then"
-				  +"         'RUB Single Product'"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '4' then"
-				  +"         'RUB Double Product Single Dummy'"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '5' then"
-				  +"         'RUB Double Product Double Dummy'"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '6' then"
-				  +"         'Cycle Exchange'"
-				  +"        when to_char(substr(plc.outputdata, 26, 1)) = '7' then"
-				  +"         'Traffic'"
-				  +"        else"
-				  +"         'NonDefine'"
-				  +"      end state"
-				  +" from main_bc_line t, plcdata plc"
-				+" where t.hostlineid = '"+BCName+"'"
-				  +"  and t.bcno = plc.bcno"
-				  +"  and t.bclineno = plc.bclineno"
-				  +"  and t.fabtype = plc.fabtype"
-				  +"  and plc.devicetype = '1'";
+		String SQL = "select t.hostlineid || '.InlineMode' subeqpid," + "      case"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '0' then" + "         'Normal'"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '1' then" + "         'Sort'"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '2' then" + "         'Dummy Laser Mode'"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '3' then" + "         'RUB Single Product'"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '4' then"
+				+ "         'RUB Double Product Single Dummy'"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '5' then"
+				+ "         'RUB Double Product Double Dummy'"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '6' then" + "         'Cycle Exchange'"
+				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '7' then" + "         'Traffic'"
+				+ "        else" + "         'NonDefine'" + "      end state" + " from main_bc_line t, plcdata plc"
+				+ " where t.hostlineid = '" + BCName + "'" + "  and t.bcno = plc.bcno"
+				+ "  and t.bclineno = plc.bclineno" + "  and t.fabtype = plc.fabtype" + "  and plc.devicetype = '1'";
 
 		rs = BCDB.Query(SQL);
 		try {
 			while (rs.next()) {
 				String key = rs.getString("subeqpid");
-			    String value = rs.getString("state");
+				String value = rs.getString("state");
 				synchronized (LineInfo) {
 					if (LineInfo.containsKey(key)) {
 						LineInfo.remove(key);
@@ -321,7 +302,8 @@ public class BCData  {
 			}
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			logger.error("updateEvent while (rs.next()) error, exception=" + e.getMessage());
+			logger.error("updateEvent while (rs.next()) error,BC=" + BCName + " exception=" + e.getMessage() + " SQL="
+					+ SQL);
 
 		} finally {
 			try {
@@ -358,24 +340,24 @@ public class BCData  {
 	}
 
 	public Vector<String> getSubEqpList() {
-//		Vector<String> result = new Vector<String>();
-//		synchronized (SubEQPList) {
-//
-//			for (String each : SubEQPList) {
-//				result.add(each);
-//			}
-//
-//		}
+		// Vector<String> result = new Vector<String>();
+		// synchronized (SubEQPList) {
+		//
+		// for (String each : SubEQPList) {
+		// result.add(each);
+		// }
+		//
+		// }
 		return SubEQPList;
 
 	}
-	
-	public Set<String> getLineInfoKeys(){
+
+	public Set<String> getLineInfoKeys() {
 		return LineInfo.keySet();
 	}
-	
+
 	public String getLineInfo(String key) {
-		
+
 		String result = "";
 		synchronized (LineInfo) {
 			if (LineInfo.containsKey(key)) {
@@ -383,5 +365,5 @@ public class BCData  {
 			}
 		}
 		return result;
-	} 
+	}
 }

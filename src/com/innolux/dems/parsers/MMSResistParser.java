@@ -6,14 +6,18 @@ import org.apache.log4j.Logger;
 import org.json.JSONObject;
 
 import com.innolux.dems.interfaces.CallBackInterface;
+import com.innolux.dems.interfaces.ItemState;
+import com.innolux.dems.interfaces.MMSMsg;
+import com.innolux.dems.interfaces.MMSParserInterface;
 import com.innolux.dems.interfaces.ParserInterface;
+import com.innolux.dems.source.Tools;
 
-public class MMSResistParser implements ParserInterface {
-	private CallBackInterface sourceObj;
+public class MMSResistParser implements CallBackInterface {
+	private MMSParserInterface sourceObj;
 	private String fab = "";
 	private Logger logger = Logger.getLogger(this.getClass());
 	
-	public MMSResistParser(CallBackInterface _sourceObj, String _fab){
+	public MMSResistParser(MMSParserInterface _sourceObj, String _fab){
 		sourceObj = _sourceObj;
 		fab = _fab;
 	}
@@ -25,15 +29,16 @@ public class MMSResistParser implements ParserInterface {
 			if (msg.indexOf("class=MMSResistInUseRep") == -1) {
 				return;
 			}
-			String jsonString = parseMsg(msg);
-			if (!jsonString.equals("")) {
-				sourceObj.onRvMsg(jsonString);
-			}
+			MMSMsg result = parseMsg(msg);
+			
+			sourceObj.onRvMsg(result);
+			
 		}
 	}
 	
-	private String parseMsg(String orgMsg) {
+	private MMSMsg parseMsg(String orgMsg) {
 		try {
+			MMSMsg result = new MMSMsg();
 			String eqpID = "";
 			String target1 = "SubEqpID=\"";
 			if (orgMsg.indexOf(target1) != -1) {
@@ -43,7 +48,7 @@ public class MMSResistParser implements ParserInterface {
 				eqpID = orgMsg.substring(target1_startIdx, target1_endIdx);
 			}else{
 				logger.error("parse error: SubEqpID is not exist, original Message:" + orgMsg);
-				return "";
+				return result;
 			}
 
 			String MaterialType = "";
@@ -71,7 +76,7 @@ public class MMSResistParser implements ParserInterface {
 				}
 			}else{
 				logger.error("parse error: MaterialType is not exist, original Message:" + orgMsg);
-				return "";
+				return result;
 			}
 			String ResistID = "";
 			String target3 = "ResistID=\"";
@@ -82,7 +87,7 @@ public class MMSResistParser implements ParserInterface {
 				ResistID = orgMsg.substring(target3_startIdx, target3_endIdx);
 			}else{
 				logger.error("parse error: ResistID is not exist, original Message:" + orgMsg);
-				return "";
+				return result;
 			}
 			
 			String MainEqpID = "";
@@ -94,22 +99,24 @@ public class MMSResistParser implements ParserInterface {
 				MainEqpID = orgMsg.substring(target4_startIdx, target4_endIdx);
 			}else{
 				logger.error("parse error: eqpId is not exist, original Message:" + orgMsg);
-				return "";
+				return result;
 			}
 
-			JSONObject SendJson = new JSONObject();
-			SendJson.put("fab", fab);
-			SendJson.put("eqpName", eqpID);
-			SendJson.put("status", MaterialType);
-			SendJson.put("resistID", ResistID);
-			SendJson.put("mainEqpID", MainEqpID);
+			
+			result.Fab = fab;
+			result.EqpID = eqpID;
+			result.MaterialType = MaterialType;
+			result.ResistID = ResistID;
+			result.MainEqpID = MainEqpID;
+			
+			
 
-			String SendStr = SendJson.toString();
-
-			return SendStr;
+			return result;
 		} catch (Exception e) {
+			Tools tools = new Tools();
 			logger.error("parse error:" + e.getMessage() + " original Message:" + orgMsg);
-			return "";
+			logger.error(tools.StackTrace2String(e));
+			return new MMSMsg();
 		}
 	}
 

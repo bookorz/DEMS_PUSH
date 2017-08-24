@@ -15,12 +15,12 @@ import com.innolux.dems.source.CurrentState;
 import com.innolux.dems.source.Mes;
 import com.innolux.dems.source.Tools;
 
-public class EqpStateParser implements CallBackInterface {
+public class MCDParser implements CallBackInterface {
 	private ParserInterface sourceObj;
 	private String fab = "";
 	private Logger logger = Logger.getLogger(this.getClass());
 
-	public EqpStateParser(ParserInterface _sourceObj, String _fab) {
+	public MCDParser(ParserInterface _sourceObj, String _fab) {
 		sourceObj = _sourceObj;
 		fab = _fab;
 		
@@ -45,18 +45,19 @@ public class EqpStateParser implements CallBackInterface {
 		    Hashtable<String,String> tmpStateCol = new Hashtable<String,String>();
 			for (String orgMsg : orgMsgList) {
 				try {
-					
-					
-					if (orgMsg.indexOf("subEqpID=\"") == -1) {
+					if (orgMsg.indexOf("class=EapReportAlarmInt") == -1) {
 						continue;
 					}
-					int idxEqp = orgMsg.indexOf("subEqpID=\"") + 10;
+					int idxEqp = orgMsg.indexOf("eqpId=\"") + 7;
 					int idxEnd = orgMsg.indexOf("\"", idxEqp + 1);
 					String ID = orgMsg.substring(idxEqp, idxEnd);
+					if (!(ID.indexOf("MCD") != -1 || ID.indexOf("MCL") != -1)) {
+						continue;
+					}
 
 					String eqpStatus = "";
-					if (orgMsg.indexOf("newState=\"") != -1) {
-						String target2 = "newState=\"";
+					if (orgMsg.indexOf("alarmText=\"") != -1) {
+						String target2 = "alarmText=\"";
 
 						int target2_startIdx = orgMsg.indexOf(target2) + target2.length();
 						int target2_endIdx = orgMsg.indexOf("\"", target2_startIdx);
@@ -65,17 +66,12 @@ public class EqpStateParser implements CallBackInterface {
 						logger.error("parse error:newState is not exist, original Message:" + orgMsg);
 						return result;
 					}
+					if(eqpStatus.indexOf("LW Measure error") != -1){
+						if(!tmpStateCol.containsKey(ID)){
 
-					if(tmpStateCol.containsKey(ID)){
-						String lastState = tmpStateCol.get(ID);
-						if(!lastState.equals(eqpStatus)){
-							tmpStateCol.remove(ID);
-							tmpStateCol.put(ID, eqpStatus);
+							tmpStateCol.put(ID, "ALERT");
 						}
-					}else{
-						tmpStateCol.put(ID, eqpStatus);
 					}
-
 					
 				} catch (Exception e) {
 					Tools tools = new Tools();
@@ -84,16 +80,14 @@ public class EqpStateParser implements CallBackInterface {
 				}
 			}
 			
-			
+		
 			
 			for(String eachKey:tmpStateCol.keySet()){
 				ItemState eachEqp = new ItemState();
-				String newStatus = tmpStateCol.get(eachKey);
 				eachEqp.Fab = fab;
 				eachEqp.ItemName = eachKey;
-				eachEqp.ItemState = newStatus;
-			
-				
+				eachEqp.UpdateValue = "true";
+				eachEqp.UpdateType = "Item_Alert";
 				result.add(eachEqp);
 			}
 			

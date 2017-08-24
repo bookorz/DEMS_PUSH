@@ -2,35 +2,162 @@ package com.innolux.dems.source;
 
 import java.math.BigInteger;
 import java.sql.ResultSet;
+import java.util.ArrayList;
 import java.util.Hashtable;
+import java.util.List;
 import java.util.Set;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
+import org.json.JSONArray;
+import org.json.JSONObject;
 
 import com.innolux.dems.DBConnector;
+import com.innolux.dems.interfaces.CallBackInterface;
+import com.innolux.dems.interfaces.ItemState;
+import com.innolux.dems.interfaces.ParserInterface;
 
-public class BCData {
+public class BCData extends Thread {
 	private Logger logger = Logger.getLogger(this.getClass());
 	private Hashtable<String, String> Events = new Hashtable<String, String>();
-	private Hashtable<String, String> EventChangeList = new Hashtable<String, String>();
 	private Hashtable<String, String> WIP = new Hashtable<String, String>();
-	private Hashtable<String, String> WIPChangeList = new Hashtable<String, String>();
+	private Hashtable<String, List<String>> GlassList = new Hashtable<String, List<String>>();
 	private Hashtable<String, String> LineInfo = new Hashtable<String, String>();
-	private Hashtable<String, String> LineInfoChangeList = new Hashtable<String, String>();
 	public Vector<String> SubEQPList = new Vector<String>();
 	DBConnector BCDB = null;
 	public String BCName = "";
 	public String BCIP = "";
+	public String Fab = "";
+	public Vector<FunctionAttribute> PushEventList = new Vector<FunctionAttribute>();
+    private Tools tools = new Tools();
+	
+	private ParserInterface sourceObj;
 
-	public BCData(String _BCName, String _BCIP) {
+	public BCData(String _BCName,String _BCIP,String _Fab,ParserInterface _sourceObj) {
 		BCName = _BCName;
 
 		BCIP = _BCIP;
+		
+		Fab = _Fab;
 
 		BCDB = new DBConnector("jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = "
 				+ _BCIP + ")(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME =ORCL)))", "innolux", "innoluxabc123");
+		sourceObj = _sourceObj;
+	}
 
+	public void run() {
+		while (true) {
+			try {
+				updateEvent();
+				updateWIPCount();
+				updateGlassList();
+				updateHostMode();
+				updateInlineMode();
+				updatePortInfo();
+				JSONObject SendJson = null;
+
+				Vector<ItemState> pushList = new Vector<ItemState>();
+				for(String key:getLineInfoKeys()){
+					String value = getLineInfo(key);
+					
+					ItemState eachEqp = new ItemState();
+					eachEqp.Fab = Fab;
+					eachEqp.ItemName = key;
+					eachEqp.ItemState = value;
+					
+					pushList.add(eachEqp);			
+			    }			
+				sourceObj.onRvMsg(pushList);
+				pushList.clear();
+				
+				for(int i = 0; i < PushEventList.size(); i++){
+					FunctionAttribute eachEvent = PushEventList.get(i);
+					for(int k = 0; k < SubEQPList.size();k++){
+						String eachSubEQP = SubEQPList.get(k);
+						String EventData = getEventData(eachSubEQP, eachEvent.EventName, eachEvent.SubKey);
+						String ItemData = "";
+						if(EventData.equals("")){
+							continue;
+						}
+						try{
+							ItemData = EventData.substring(eachEvent.StartIdx, eachEvent.EndIdx);
+						}catch(Exception e){
+							logger.error("run EventData.substring error:" + e.getMessage()+ " ---- "+eachEvent.EventName+eachEvent.SubKey+"-"+eachSubEQP+"("+eachEvent.Position+","+eachEvent.Lentgh+"):"+getEventData(eachSubEQP, eachEvent.EventName, eachEvent.SubKey));
+							continue;
+						}
+						ItemData = ""+Integer.parseInt(ItemData, 2);
+						if(!eachEvent.StringMapping.containsKey("NUM")){
+							if(eachEvent.StringMapping.containsKey(ItemData)){
+								ItemData = eachEvent.StringMapping.get(ItemData);
+							}
+						}
+						
+						
+						ItemState eachEqp = new ItemState();
+						eachEqp.Fab = Fab;
+						eachEqp.ItemName = eachSubEQP+"."+eachEvent.ItemName;
+						eachEqp.ItemState = ItemData;
+						
+						pushList.add(eachEqp);		
+						
+						String WIPInfo = getWIP(eachSubEQP);
+						
+
+						eachEqp = new ItemState();
+						eachEqp.Fab = Fab;
+						eachEqp.ItemName = eachSubEQP+".WIP";
+						eachEqp.ItemState = WIPInfo;
+						
+						pushList.add(eachEqp);			
+						
+						String GlassList = getGlass(eachSubEQP);
+						
+
+						eachEqp = new ItemState();
+						eachEqp.Fab = Fab;
+						eachEqp.ItemName = eachSubEQP+".GLASS";
+						eachEqp.ItemState = GlassList;
+						
+						pushList.add(eachEqp);			
+						
+						
+						
+					}
+				}
+				sourceObj.onRvMsg(pushList);
+			
+				
+				try{
+					Thread.sleep(600000);
+				}catch(Exception e){
+					logger.error("run EventData.sleep error:" + tools.StackTrace2String(e));
+				}
+			} catch (Exception e) {
+				logger.error("BC Refresh data error, exception=" + tools.StackTrace2String(e));
+				try{
+					Thread.sleep(600000);
+				}catch(Exception e1){
+					logger.error("run EventData.sleep error:" + tools.StackTrace2String(e1));
+				}
+			}
+		}
+
+	}
+
+	public void ConePushEventList(Vector<FunctionAttribute> source) {
+		for (FunctionAttribute each : source) {
+			FunctionAttribute newFuncAttr = new FunctionAttribute();
+			newFuncAttr.EndIdx = each.EndIdx;
+			newFuncAttr.EventName = each.EventName;
+			newFuncAttr.ItemName = each.ItemName;
+			newFuncAttr.Lentgh = each.Lentgh;
+			newFuncAttr.Position = each.Position;
+			newFuncAttr.StartIdx = each.StartIdx;
+			newFuncAttr.StringMapping = each.StringMapping;
+			newFuncAttr.SubKey = each.SubKey;
+
+			PushEventList.add(newFuncAttr);
+		}
 	}
 
 	// public void run() {
@@ -43,6 +170,47 @@ public class BCData {
 	// }
 	// }
 	// }
+	public void updateGlassList() {
+
+		
+		ResultSet rs = null;
+		String SQL = "select t.hostsubeqid subeqid, t.glassid glass" + "  from wipdata t"
+				+ " where t.updatetime > to_char(sysdate - 10, 'yyyy-mm-dd') And InUseFlag = 1";
+		rs = BCDB.Query(SQL);
+
+		try {
+
+			while (rs.next()) {
+				synchronized (GlassList) {
+
+					if (GlassList.containsKey(rs.getString("subeqid"))) {
+						
+						List<String> tmp = GlassList.get(rs.getString("subeqid"));
+						if(tmp.size()<30){
+							tmp.add(rs.getString("glass"));	
+						}
+					} else {
+						List<String> tmp = new ArrayList<String>();
+						tmp.add(rs.getString("glass"));
+						GlassList.put(rs.getString("subeqid"),tmp );
+					}
+				}
+			}
+		} catch (Exception e) {
+			// TODO Auto-generated catch block
+			logger.error("updateGlassList while (rs.next()) error, exception=" + e.getMessage());
+
+		} finally {
+			try {
+
+				rs.getStatement().close();
+			} catch (Exception e) {
+				// TODO Auto-generated catch block
+				logger.error("updateGlassList rs.close error :" + e.getMessage());
+			}
+		}
+
+	}
 
 	public void updateWIPCount() {
 
@@ -55,20 +223,20 @@ public class BCData {
 				+ "                     '[IN EQP]=' || to_char(count(t.hostsubeqid))" + "                    else"
 				+ "                     '[BUFFER(' || to_char(t.bufferno) || ')]=' ||"
 				+ "                     to_char(count(t.hostsubeqid))" + "                  end) count"
-				+ "        from wipdata t" + "       where t.updatetime > to_char(sysdate - 100, 'yyyy-mm-dd')"
+				+ "        from wipdata t" + "       where t.updatetime > to_char(sysdate - 100, 'yyyy-mm-dd') And InUseFlag = 1"
 				+ "       group by t.hostsubeqid, t.bufferno, t.currentcstid,t.hostportid)" + " group by subeqid";
 		rs = BCDB.Query(SQL);
 
 		try {
-			EventChangeList.clear();
+
 			while (rs.next()) {
 				synchronized (WIP) {
-					
+
 					if (WIP.containsKey(rs.getString("subeqid"))) {
 						if (!WIP.get(rs.getString("subeqid")).equals(rs.getString("count"))) {
 							WIP.remove(rs.getString("subeqid"));
 							WIP.put(rs.getString("subeqid"), rs.getString("count"));
-							
+
 						}
 
 					} else {
@@ -334,6 +502,29 @@ public class BCData {
 		synchronized (WIP) {
 			if (WIP.containsKey(key)) {
 				result = WIP.get(key);
+			}
+		}
+		return result;
+	}
+
+	public String getGlass(String subEqp) {
+		String key = subEqp;
+		String result = " ";
+		synchronized (GlassList) {
+			
+			if (GlassList.containsKey(key)) {
+				List<String> tmp = GlassList.get(key);
+				for(String each : tmp){
+					if(result==null){
+						result = "";
+					}
+					if(result.equals("")){
+						result = each;
+					}else{
+						result += "," + each;
+					}
+					
+				}
 			}
 		}
 		return result;

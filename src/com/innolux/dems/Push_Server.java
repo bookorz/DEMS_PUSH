@@ -28,18 +28,21 @@ public class Push_Server{
 			currentState = new CurrentState(MesDB,"CELL");
 			Initial.onRvMsg(currentState.getAllStates());
 		
+		TibcoRvListener FromMCDMsg = new TibcoRvListener("172.20.8.14:8585","INNOLUX.T2.PROD.MES.ARRAY.COMM_SRV.>","8585","",new MCDParser(new UpdateStatus(),"ARRAY"));
+		FromMCDMsg.start();
 		
-		
-		TibcoRvListener FromCFMESMsg = new TibcoRvListener("172.20.8.13:8585","INNOLUX.T2.PROD.OEE.MESSTATUSREPORT.CF","8585","",new EqpStateParser(new UpdateState(),"CF"));
+		TibcoRvListener FromCFMESMsg = new TibcoRvListener("172.20.8.14:8585","INNOLUX.T2.PROD.OEE.MESSTATUSREPORT.CF","8585","",new EqpStateParser(new UpdateState(),"CF"));
 		FromCFMESMsg.start();
-		TibcoRvListener FromARYMESMsg = new TibcoRvListener("172.20.8.13:8585","INNOLUX.T2.PROD.OEE.MESSTATUSREPORT.ARRAY","8585","",new EqpStateParser(new UpdateState(),"ARRAY"));
+		TibcoRvListener FromARYMESMsg = new TibcoRvListener("172.20.8.14:8585","INNOLUX.T2.PROD.OEE.MESSTATUSREPORT.ARRAY","8585","",new EqpStateParser(new UpdateState(),"ARRAY"));
 		FromARYMESMsg.start();
-		TibcoRvListener FromCELLMESMsg = new TibcoRvListener("172.20.8.13:8585","INNOLUX.T2.PROD.OEE.MESSTATUSREPORT.CELL","8585","",new EqpStateParser(new UpdateState(),"CELL"));
+		TibcoRvListener FromCELLMESMsg = new TibcoRvListener("172.20.8.14:8585","INNOLUX.T2.PROD.OEE.MESSTATUSREPORT.CELL","8585","",new EqpStateParser(new UpdateState(),"CELL"));
 		FromCELLMESMsg.start();
-		TibcoRvListener FromBCMMSMsg = new TibcoRvListener("172.20.8.13:8585","INNOLUX.T2.PROD.MMS.CF.>","8585","",new MMSResistParser(new UpdateResistStatus(),"CF"));
+		TibcoRvListener FromBCMMSMsg = new TibcoRvListener("172.20.8.14:8585","INNOLUX.T2.PROD.MMS.CF.>","8585","",new MMSResistParser(new UpdateResistStatus(),"CF"));
 		FromBCMMSMsg.start();
-		BCCampsite BC = new BCCampsite(new UpdateState(),"CF");
-		BC.start();
+		BCCampsite CFBC = new BCCampsite("CF");
+		
+		BCCampsite CELLBC = new BCCampsite("CELL");
+		
 		Mes ArrayMes = new Mes(new UpdateState(),"ARRAY");
 		ArrayMes.start();
 		

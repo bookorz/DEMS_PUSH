@@ -1,22 +1,26 @@
 package com.innolux.dems.source;
 
+import java.util.Vector;
+
 import org.apache.log4j.Logger;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.innolux.dems.DBConnector;
 import com.innolux.dems.interfaces.CallBackInterface;
+import com.innolux.dems.interfaces.ItemState;
+import com.innolux.dems.interfaces.ParserInterface;
 
 import type.PortCST;
 import type.StockerInfo;
 
 public class Mes extends Thread {
 	private Logger logger = Logger.getLogger(this.getClass());
-	private CallBackInterface sourceObj;
+	private ParserInterface sourceObj;
 	private String Fab = "";
 	private DBConnector MesDB = null;
 
-	public Mes(CallBackInterface _sourceObj, String _Fab) {
+	public Mes(ParserInterface _sourceObj, String _Fab) {
 		sourceObj = _sourceObj;
 		Fab = _Fab;
 		switch (_Fab) {
@@ -44,46 +48,53 @@ public class Mes extends Thread {
 
 		StockerData stockerData = new StockerData(MesDB);
 		PortCSTInfo portCSTInfo = new PortCSTInfo(MesDB);
+		CurrentState eqpDate = new CurrentState(MesDB,Fab);
 
 		while (true) {
-			JSONArray pushList = new JSONArray();
+			Vector<ItemState> pushList = new Vector<ItemState>();
 			if (Fab.equals("ARRAY")) {
 				stockerData.updateStockerData();
 				for (String eachStocker : stockerData.getStockerInfoKeys()) {
 					StockerInfo eachStockerInfo = stockerData.getStockerInfo(eachStocker);
 					if (eachStockerInfo != null) {
-						JSONObject eachStk = new JSONObject();
-						eachStk.put("EquipmentName", eachStockerInfo.EquipmentName);
-						eachStk.put("State",
-								"I:" + eachStockerInfo.transferInstk + " O:" + eachStockerInfo.transferOutstk + " E:"
-										+ eachStockerInfo.Emptycst + " " + eachStockerInfo.fullratio);
-						pushList.put(eachStk);
+						ItemState eachStk = new ItemState();
+						eachStk.Fab = Fab;
+						eachStk.ItemName = eachStockerInfo.EquipmentName;
+						eachStk.ItemState = "I:" + eachStockerInfo.transferInstk + " O:" + eachStockerInfo.transferOutstk + " E:"
+								+ eachStockerInfo.Emptycst + " " + eachStockerInfo.fullratio;
+
+						pushList.add(eachStk);
 					}
 
 				}
+				
+				
+				eqpDate.GetEQMode();
+				
 			}
 			portCSTInfo.updatePortCSTInfo();
 			for (String eachPort : portCSTInfo.getPortCSTInfoKeys()) {
 				PortCST eachPortCSTInfo = portCSTInfo.getPortCSTInfo(eachPort);
 				if (eachPortCSTInfo != null) {
-					JSONObject eachPortInfo = new JSONObject();
-					eachPortInfo.put("EquipmentName", eachPortCSTInfo.PortID);
-					eachPortInfo.put("State",eachPortCSTInfo.CassetteID);
-					pushList.put(eachPortInfo);
+					ItemState eachPortInfo = new ItemState();
+					eachPortInfo.Fab = Fab;
+					eachPortInfo.ItemName = eachPortCSTInfo.PortID;
+					eachPortInfo.ItemState = eachPortCSTInfo.CassetteID;
+								
+					pushList.add(eachPortInfo);
 				}
 
 			}
 			
 			
 
-			JSONObject SendJson = new JSONObject();
-			SendJson.put("fab", Fab);
-			SendJson.put("eqpStateList", pushList);
-			sourceObj.onRvMsg(SendJson.toString());
+			
+			sourceObj.onRvMsg(pushList);
 			try {
 				Thread.sleep(30000);
 			} catch (Exception e) {
-				logger.error("run Mes.sleep error:" + e.getMessage());
+				Tools tools = new Tools();
+				logger.error(tools.StackTrace2String(e));
 			}
 		}
 	}

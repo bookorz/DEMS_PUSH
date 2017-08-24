@@ -2,6 +2,7 @@ package com.innolux.dems.output;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Vector;
 
 import javax.ws.rs.client.Client;
 import javax.ws.rs.client.ClientBuilder;
@@ -18,8 +19,11 @@ import org.json.JSONObject;
 
 import com.innolux.dems.DBConnector;
 import com.innolux.dems.interfaces.CallBackInterface;
+import com.innolux.dems.interfaces.ItemState;
+import com.innolux.dems.interfaces.ParserInterface;
+import com.innolux.dems.source.Tools;
 
-public class UpdateState implements CallBackInterface {
+public class UpdateState implements ParserInterface {
 
 	private Logger logger = Logger.getLogger(this.getClass());
 	private DBConnector CELLEDCXSpec = new DBConnector(
@@ -31,49 +35,40 @@ public class UpdateState implements CallBackInterface {
 	}
 
 	@Override
-	public void onRvMsg(String msg) {
+	public void onRvMsg(Vector<ItemState> msg) {
 		// TODO Auto-generated method stub
 		Update2DB(msg);
 	}
 
-	private void Update2DB(String jsonStr) {
+	private void Update2DB(Vector<ItemState> msg) {
 		try {
-			JSONObject orgMsg = new JSONObject(jsonStr);
-			String Fab = orgMsg.getString("fab");
-			JSONArray revJson = orgMsg.getJSONArray("eqpStateList");
-			for(int i = 0;i<revJson.length();i++){
-				JSONObject each = revJson.getJSONObject(i);
-				String EquipmentName = each.getString("EquipmentName");
-				String State = "";
-				try{
-					State = each.getString("State");
-				}catch(Exception e){
-					logger.error("Update2DB error: " + e.getMessage() + " each:" + each.toString());
-				}
-				
-				String UpdateTime = "";
-				try{
-					UpdateTime = each.getString("UpdateTime");
-				}catch(Exception e){
-					UpdateTime = "";
-				}
-				if(!UpdateTime.equals("")){
-					UpdateTime = UpdateTime.substring(0,15);
-				}
+			
+			for(int i = 0;i<msg.size();i++){
+				ItemState eachItem = msg.get(i);
+				boolean isChange = false;
+
+		
 				ResultSet rs = null;
 				int rowCount = 0;
-				String SQL = "select * from dems_current_state t where t.fab = '"+Fab+"' and t.item_name = '"+EquipmentName+"'";
-				logger.info(SQL);
+				String SQL = "select * from dems_current_state t where t.fab = '"+eachItem.Fab+"' and t.item_name = '"+eachItem.ItemName+"'";
+				logger.debug(SQL);
 				rs = CELLEDCXSpec.Query(SQL);
 
 				try {
 					while (rs.next()) {
 						rowCount++;
-
+						if(eachItem.ItemState == null){
+							eachItem.ItemState = "";
+						}
+						if(!eachItem.ItemState.equals(rs.getString("item_state"))){
+							isChange = true;
+						}
 					}
-				} catch (SQLException e) {
+				} catch (Exception e) {
 					// TODO Auto-generated catch block
-					logger.error("Functon:Update2DB rs.next() error, exception=" + e.getMessage());
+					Tools tools = new Tools();
+					logger.error(eachItem.toString());
+					logger.error( tools.StackTrace2String(e));
 				} finally {
 					try {
 						rs.getStatement().close();
@@ -83,20 +78,25 @@ public class UpdateState implements CallBackInterface {
 				}
 
 				if (rowCount != 0) {
-					if(UpdateTime.equals("")){
-						SQL = "update dems_current_state t set t.item_state='"+State+"',t.updatetime=sysdate where t.fab = '"+Fab+"' and t.item_name = '"+EquipmentName+"'";
-					}else{
-						SQL = "update dems_current_state t set t.item_state='"+State+"',t.updatetime=to_date('"+UpdateTime+"','yyyymmdd hh24miss') where t.fab = '"+Fab+"' and t.item_name = '"+EquipmentName+"'";
+					if(isChange){
+						if(eachItem.ItemStateUpdateTime.equals("")){
+							SQL = "update dems_current_state t set t.item_state='"+eachItem.ItemState+"',t.ITEM_STATE_UPDATETIME=sysdate,t.updatetime=sysdate where t.fab = '"+eachItem.Fab+"' and t.item_name = '"+eachItem.ItemName+"'";
+						}else{
+							eachItem.ItemStateUpdateTime = eachItem.ItemStateUpdateTime.substring(0, 15);
+							SQL = "update dems_current_state t set t.item_state='"+eachItem.ItemState+"',t.ITEM_STATE_UPDATETIME=to_date('"+eachItem.ItemStateUpdateTime+"','yyyymmdd hh24miss'),t.updatetime=sysdate where t.fab = '"+eachItem.Fab+"' and t.item_name = '"+eachItem.ItemName+"'";
+						}
+						logger.debug(SQL);
+						CELLEDCXSpec.Execute(SQL);
 					}
-					logger.info(SQL);
-					CELLEDCXSpec.Execute(SQL);
 				} else {
-					if(UpdateTime.equals("")){
-						SQL = "insert into dems_current_state (fab,item_name,item_state) values('"+Fab+"','"+EquipmentName+"','"+State+"')";
+					
+					
+					if(eachItem.ItemStateUpdateTime.equals("")){
+						SQL = "insert into dems_current_state (fab,item_name,item_state) values('"+eachItem.Fab+"','"+eachItem.ItemName+"','"+eachItem.ItemState+"')";
 					}else{
-						SQL = "insert into dems_current_state (fab,item_name,item_state,updatetime) values('"+Fab+"','"+EquipmentName+"','"+State+"',to_date('"+UpdateTime+"','yyyymmdd hh24miss'))";
+						SQL = "insert into dems_current_state (fab,item_name,item_state,ITEM_STATE_UPDATETIME) values('"+eachItem.Fab+"','"+eachItem.ItemName+"','"+eachItem.ItemState+"',to_date('"+eachItem.ItemStateUpdateTime+"','yyyymmdd hh24miss'))";
 					}
-					logger.info(SQL);
+					logger.debug(SQL);
 					CELLEDCXSpec.Execute(SQL);
 				}
 			
@@ -104,7 +104,9 @@ public class UpdateState implements CallBackInterface {
 		
 			
 		} catch (Exception e) {
-			logger.error("Update2DB error: " + e.getMessage() + " jsonMsg:" + jsonStr);
+			Tools tools = new Tools();
+			logger.error(msg.toString());
+			logger.error("Update2DB error: " + tools.StackTrace2String(e));
 		}
 
 	}

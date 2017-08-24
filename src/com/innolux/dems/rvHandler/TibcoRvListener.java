@@ -4,7 +4,9 @@ import java.util.Vector;
 
 import org.apache.log4j.Logger;
 
+import com.innolux.dems.interfaces.CallBackInterface;
 import com.innolux.dems.interfaces.ParserInterface;
+import com.innolux.dems.source.Tools;
 import com.tibco.tibrv.*;
 
 public class TibcoRvListener extends Thread implements TibrvMsgCallback {
@@ -15,9 +17,9 @@ public class TibcoRvListener extends Thread implements TibrvMsgCallback {
 	private String network;
 	private Vector<String> msgCol = new Vector<String>();
 
-	private ParserInterface sourceObj;
+	private CallBackInterface sourceObj;
 
-	public TibcoRvListener(String _daemon, String _subject, String _service, String _network, ParserInterface _sourceObj) {
+	public TibcoRvListener(String _daemon, String _subject, String _service, String _network, CallBackInterface _sourceObj) {
 		daemon = _daemon;
 		subject = _subject;
 		service = _service;
@@ -87,18 +89,20 @@ public class TibcoRvListener extends Thread implements TibrvMsgCallback {
 			TibrvMsgField field = message.getField("DATA");
 			if (field.type == TibrvMsg.STRING) {
 			    data = (String) field.data;
-				logger.info("RVListener onMsg:" + data);
+				logger.debug("RVListener onMsg:" + data);
 
 				//sourceObj.onRvMsg(data);
 				msgCol.add(data);
 				if(Tibrv.defaultQueue().getCount()==0){
 					sourceObj.onRvMsg(msgCol);
 				
-					msgCol.clear();
+					msgCol = new Vector<String>();
 				}
 			}
 		} catch (Exception e) {
-			logger.error("onMsg: " + e + " subject:"+subject+" msg:"+data);
+			Tools tools = new Tools();
+			logger.error("subject:"+subject+" msg:"+data);
+			logger.error(tools.StackTrace2String(e));
 		}
 	}
 }

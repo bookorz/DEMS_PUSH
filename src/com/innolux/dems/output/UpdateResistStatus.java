@@ -2,14 +2,19 @@ package com.innolux.dems.output;
 
 import java.sql.ResultSet;
 import java.sql.SQLException;
+import java.util.Vector;
 
 import org.apache.log4j.Logger;
 import org.json.JSONObject;
 
 import com.innolux.dems.DBConnector;
 import com.innolux.dems.interfaces.CallBackInterface;
+import com.innolux.dems.interfaces.ItemState;
+import com.innolux.dems.interfaces.MMSMsg;
+import com.innolux.dems.interfaces.MMSParserInterface;
+import com.innolux.dems.source.Tools;
 
-public class UpdateResistStatus implements CallBackInterface {
+public class UpdateResistStatus implements MMSParserInterface {
 
 	private Logger logger = Logger.getLogger(this.getClass());
 	private DBConnector BC2FBML100 = new DBConnector(
@@ -17,16 +22,14 @@ public class UpdateResistStatus implements CallBackInterface {
 			"innolux", "innoluxabc123");
 
 	@Override
-	public void onRvMsg(String jsonMsg) {
+	public void onRvMsg(MMSMsg msg) {
 		// TODO Auto-generated method stub
 		try {
-			JSONObject revJson = new JSONObject(jsonMsg);
-
-			// String fab = revJson.getString("fab");
-			String eqpName = revJson.getString("eqpName");
-			String status = revJson.getString("status");
-			String resistID = revJson.getString("resistID");
-			String mainEqpID = revJson.getString("mainEqpID");
+			
+			String eqpName = msg.EqpID;
+			String status = msg.MaterialType;
+			String resistID = msg.ResistID;
+			String mainEqpID = msg.MainEqpID;
 			ResultSet rs = null;
 			if (status.equals("UnMount")) {
 			 	String SQL = "delete cf_mtrl_status t where t.eqp_id = '" + mainEqpID + "' and t.subeqp_id = '" + eqpName + "' and t.mtrl_id = '" + resistID + "'";
@@ -71,7 +74,8 @@ public class UpdateResistStatus implements CallBackInterface {
 			}
 
 		} catch (Exception e) {
-			logger.error("UpdateResistStatus error: " + e.getMessage() + " jsonMsg:" + jsonMsg);
+			Tools tools = new Tools();
+			logger.error("UpdateResistStatus error: " + tools.StackTrace2String(e));
 		}
 
 	}

@@ -26,109 +26,17 @@ class FunctionAttribute{
 }
 
 
-public class BCCampsite extends Thread{
+public class BCCampsite{
 	private Hashtable<String, BC> BCList = new Hashtable<String, BC>();
 	private Logger logger = Logger.getLogger(this.getClass());
 	private Vector<FunctionAttribute> PushEventList = new Vector<FunctionAttribute>();
-	private CallBackInterface sourceObj;
+	
 	private String Fab = "";
 
-	public BCCampsite(CallBackInterface _sourceObj,String _Fab){
-		sourceObj = _sourceObj;
-		Fab = _Fab;
-	}
-	
-	public void run() {
-		GetBC(Fab);
-		GetPushEventList();
-		while(true){
-			for(String eachBCName:BCList.keySet()){
-				BC eachBC = BCList.get(eachBCName);
-				Vector<String> currentSubEqpList = eachBC.BCInfo.getSubEqpList();
-				eachBC.BCInfo.updateEvent();
-				eachBC.BCInfo.updateWIPCount();
-				eachBC.BCInfo.updateHostMode();
-				eachBC.BCInfo.updateInlineMode();
-				eachBC.BCInfo.updatePortInfo();
-				JSONObject SendJson = null;
-
-				JSONArray pushList = new JSONArray();
-				for(String key:eachBC.BCInfo.getLineInfoKeys()){
-					String value = eachBC.BCInfo.getLineInfo(key);
-					
-					JSONObject eachEqp = new JSONObject();
-					eachEqp.put("EquipmentName", key);
-					eachEqp.put("State",value);
-					pushList.put(eachEqp);			
-					if(pushList.length() > 50){
-						SendJson = new JSONObject();
-						SendJson.put("fab", Fab);
-						SendJson.put("eqpStateList", pushList);
-						sourceObj.onRvMsg(SendJson.toString());
-						pushList = new JSONArray();
-					}
-			    }			
-				
-				
-				for(int i = 0; i < PushEventList.size(); i++){
-					FunctionAttribute eachEvent = PushEventList.get(i);
-					for(int k = 0; k < currentSubEqpList.size();k++){
-						String eachSubEQP = currentSubEqpList.get(k);
-						String EventData = eachBC.BCInfo.getEventData(eachSubEQP, eachEvent.EventName, eachEvent.SubKey);
-						String ItemData = "";
-						if(EventData.equals("")){
-							continue;
-						}
-						try{
-							ItemData = EventData.substring(eachEvent.StartIdx, eachEvent.EndIdx);
-						}catch(Exception e){
-							logger.error("run EventData.substring error:" + e.getMessage()+ " ---- "+eachEvent.EventName+eachEvent.SubKey+"-"+eachSubEQP+"("+eachEvent.Position+","+eachEvent.Lentgh+"):"+eachBC.BCInfo.getEventData(eachSubEQP, eachEvent.EventName, eachEvent.SubKey));
-							continue;
-						}
-						ItemData = ""+Integer.parseInt(ItemData, 2);
-						if(!eachEvent.StringMapping.containsKey("NUM")){
-							if(eachEvent.StringMapping.containsKey(ItemData)){
-								ItemData = eachEvent.StringMapping.get(ItemData);
-							}
-						}
-						
-						
-						JSONObject eachEqp = new JSONObject();
-						eachEqp.put("EquipmentName", eachSubEQP+"."+eachEvent.ItemName);
-						eachEqp.put("State",ItemData);
-						pushList.put(eachEqp);		
-						
-						String WIPInfo = eachBC.BCInfo.getWIP(eachSubEQP);
-						if(!WIPInfo.equals("")){
-
-							eachEqp = new JSONObject();
-							eachEqp.put("EquipmentName", eachSubEQP+".WIP");
-							eachEqp.put("State",WIPInfo);
-							pushList.put(eachEqp);			
-						}
-						if(pushList.length() > 50){
-							SendJson = new JSONObject();
-							SendJson.put("fab", Fab);
-							SendJson.put("eqpStateList", pushList);
-							sourceObj.onRvMsg(SendJson.toString());
-							pushList = new JSONArray();
-						}
-						
-					}
-				}				
-			
-				SendJson = new JSONObject();
-				SendJson.put("fab", Fab);
-				SendJson.put("eqpStateList", pushList);
-				sourceObj.onRvMsg(SendJson.toString());
-				try{
-					Thread.sleep(10000);
-				}catch(Exception e){
-					logger.error("run EventData.sleep error:" + e.getMessage());
-				}
-			}
-		}
+	public BCCampsite(String _Fab){
 		
+		Fab = _Fab;
+		GetBC(Fab);
 	}
 	
 	
@@ -186,33 +94,37 @@ public class BCCampsite extends Thread{
 				
 				
 	      	  }catch(Exception e1){
-	      		logger.error("GetPushEventList parse json error:" + e1.getMessage());	
+	      		Tools tools = new Tools();
+	      		logger.error(tools.StackTrace2String(e1));	
 	      	  } 
 	      	  
 	        }while(true);
 	        BufferedStream.close();
 	        
 		}catch(Exception e){
-			
-			logger.error("GetPushEventList read config file error :" + e.getMessage());
+			Tools tools = new Tools();
+			logger.error(tools.StackTrace2String(e));
 		}
 	}
 	
 	private void GetBC(String fab){
+		GetPushEventList();
 		DBConnector MonDB = new DBConnector(
-				"jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.11.2)(PORT = 1521)))(CONNECT_DATA =(SERVER = DEDICATED)(SERVICE_NAME = ORCL)))",
-				"monuser", "monuser");
+				"jdbc:oracle:thin:@(DESCRIPTION=(ADDRESS_LIST =      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.1)(PORT = 1521))      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.2)(PORT = 1521))      (LOAD_BALANCE = yes)    )    (CONNECT_DATA =      (SERVER = DEDICATED)      (SERVICE_NAME = t2pcel)    ))",
+				"L5CEL", "L5CEL");
 		
 		ResultSet rs = null;
 
-		String SQL = "select t.apid bc,substr(t.infodata,instr(t.infodata,'BCServerIPAddress=',1)+18,instr(t.infodata,',',instr(t.infodata,'BCServerIPAddress=',1)+18) - (instr(t.infodata,'BCServerIPAddress=',1)+18)) ip from sysinfo_last t where t.sysid = 'BC' and t.fab = '"+fab+"'";
+		String SQL = "select t.bc_name,t.ip from dems_bcip t where t.fab='"+fab+"'";
 		rs = MonDB.Query(SQL);
 		try {
 			while (rs.next()) {
-				if (!BCList.containsKey(rs.getString("bc"))) {
-					BC eachBC = new BC(rs.getString("bc"),rs.getString("ip"));
+				if (!BCList.containsKey(rs.getString("bc_name"))) {
+					BC eachBC = new BC(rs.getString("bc_name"),rs.getString("ip"),fab);
+					eachBC.BCInfo.ConePushEventList(PushEventList);
+					eachBC.BCInfo.start();
 					//eachBC.PLCData.updateEvent();
-					BCList.put(rs.getString("bc"), eachBC);
+					BCList.put(rs.getString("bc_name"), eachBC);
 				}
 			}
 		} catch (SQLException e) {

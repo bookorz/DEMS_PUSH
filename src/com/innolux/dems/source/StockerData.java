@@ -76,7 +76,8 @@ public class StockerData {
 			}
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			logger.error("updateInlineMode while (rs.next()) error, exception=" + e.getMessage());
+			Tools tools = new Tools();
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
 			try {
@@ -84,7 +85,8 @@ public class StockerData {
 				rs.getStatement().close();
 			} catch (Exception e) {
 				// TODO Auto-generated catch block
-				logger.error("updateInlineMode rs.close error :" + e.getMessage());
+				Tools tools = new Tools();
+				logger.error(tools.StackTrace2String(e));
 			}
 		}
 	}

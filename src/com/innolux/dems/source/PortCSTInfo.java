@@ -58,7 +58,8 @@ public void updatePortCSTInfo(){
 		}
 	} catch (Exception e) {
 		// TODO Auto-generated catch block
-		logger.error("updateInlineMode while (rs.next()) error, exception=" + e.getMessage());
+		Tools tools = new Tools();
+		logger.error(tools.StackTrace2String(e));
 
 	} finally {
 		try {
@@ -66,7 +67,8 @@ public void updatePortCSTInfo(){
 			rs.getStatement().close();
 		} catch (Exception e) {
 			// TODO Auto-generated catch block
-			logger.error("updateInlineMode rs.close error :" + e.getMessage());
+			Tools tools = new Tools();
+			logger.error(tools.StackTrace2String(e));
 		}
 	}
 }

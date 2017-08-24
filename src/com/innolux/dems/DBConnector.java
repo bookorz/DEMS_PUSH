@@ -2,6 +2,8 @@ package com.innolux.dems;
 import java.sql.*;
 
 import org.apache.log4j.Logger;
+
+import com.innolux.dems.source.Tools;
 public class DBConnector {
 	public Connection con = null;
     public String _connectionStr="";
@@ -10,6 +12,7 @@ public class DBConnector {
     
     
 	public Logger logger = Logger.getLogger(this.getClass());
+	
 
 	public DBConnector(String connectionStr, String User, String PWD) {
 		_connectionStr = connectionStr;
@@ -25,8 +28,9 @@ public class DBConnector {
 			// "jdbc:oracle:thin:@172.20.9.32:1521:t2prpt"
 			
 		} catch (Exception e) {
+			Tools tools = new Tools();
 			logger.error("get Connection failed, conStr=" + connectionStr + " User=" + User + " PWD=" + PWD
-					+ "exception=" + e.getMessage());
+					+ "exception=" + tools.StackTrace2String(e));
 		}
 	}
 
@@ -53,7 +57,8 @@ public class DBConnector {
 			}
 			return rs;
 		} catch (Exception ex) {
-			logger.error("SQL Query failed, exception=" + ex);
+			Tools tools = new Tools();
+			logger.error("SQL Query failed, exception=" + tools.StackTrace2String(ex));
 			logger.error("SQL Query failed, SQL=" + SQL);
 //			try {
 //				if(con!=null)
@@ -94,7 +99,8 @@ public class DBConnector {
 			stmt.execute(SQL);
 
 		} catch (Exception ex) {
-			logger.error("SQL Execute failed, exception=" + ex);
+			Tools tools = new Tools();
+			logger.error("SQL Execute failed, exception=" + tools.StackTrace2String(ex));
 			logger.error("SQL Query failed, SQL=" + SQL);
 			try {
 				con.close();

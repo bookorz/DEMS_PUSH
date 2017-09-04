@@ -1,7 +1,10 @@
 package com.innolux.dems.source;
 
 import java.math.BigInteger;
+import java.sql.Connection;
 import java.sql.ResultSet;
+import java.sql.SQLException;
+import java.sql.Statement;
 import java.util.ArrayList;
 import java.util.Hashtable;
 import java.util.List;
@@ -9,11 +12,7 @@ import java.util.Set;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import com.innolux.dems.DBConnector;
-import com.innolux.dems.interfaces.CallBackInterface;
 import com.innolux.dems.interfaces.ItemState;
 import com.innolux.dems.interfaces.ParserInterface;
 
@@ -29,19 +28,19 @@ public class BCData extends Thread {
 	public String BCIP = "";
 	public String Fab = "";
 	public Vector<FunctionAttribute> PushEventList = new Vector<FunctionAttribute>();
-    private Tools tools = new Tools();
-	
+	private Tools tools = new Tools();
+
 	private ParserInterface sourceObj;
 
-	public BCData(String _BCName,String _BCIP,String _Fab,ParserInterface _sourceObj) {
+	public BCData(String _BCName, String _BCIP, String _Fab, ParserInterface _sourceObj) {
 		BCName = _BCName;
 
 		BCIP = _BCIP;
-		
+
 		Fab = _Fab;
 
 		BCDB = new DBConnector("jdbc:oracle:thin:@(DESCRIPTION =(ADDRESS_LIST =(ADDRESS = (PROTOCOL = TCP)(HOST = "
-				+ _BCIP + ")(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME =ORCL)))", "innolux", "innoluxabc123");
+				+ _BCIP + ")(PORT = 1521)))(CONNECT_DATA =(SERVICE_NAME =ORCL)))", "innolux", "innoluxabc123", 1);
 		sourceObj = _sourceObj;
 	}
 
@@ -54,89 +53,82 @@ public class BCData extends Thread {
 				updateHostMode();
 				updateInlineMode();
 				updatePortInfo();
-				JSONObject SendJson = null;
+			
 
-				Vector<ItemState> pushList = new Vector<ItemState>();
-				for(String key:getLineInfoKeys()){
+				for (String key : getLineInfoKeys()) {
 					String value = getLineInfo(key);
-					
+
 					ItemState eachEqp = new ItemState();
 					eachEqp.Fab = Fab;
 					eachEqp.ItemName = key;
 					eachEqp.ItemState = value;
-					
-					pushList.add(eachEqp);			
-			    }			
-				sourceObj.onRvMsg(pushList);
-				pushList.clear();
-				
-				for(int i = 0; i < PushEventList.size(); i++){
+					sourceObj.onRvMsg(eachEqp);
+
+				}
+
+				for (int i = 0; i < PushEventList.size(); i++) {
 					FunctionAttribute eachEvent = PushEventList.get(i);
-					for(int k = 0; k < SubEQPList.size();k++){
+					for (int k = 0; k < SubEQPList.size(); k++) {
 						String eachSubEQP = SubEQPList.get(k);
 						String EventData = getEventData(eachSubEQP, eachEvent.EventName, eachEvent.SubKey);
 						String ItemData = "";
-						if(EventData.equals("")){
+						if (EventData.equals("")) {
 							continue;
 						}
-						try{
+						try {
 							ItemData = EventData.substring(eachEvent.StartIdx, eachEvent.EndIdx);
-						}catch(Exception e){
-							logger.error("run EventData.substring error:" + e.getMessage()+ " ---- "+eachEvent.EventName+eachEvent.SubKey+"-"+eachSubEQP+"("+eachEvent.Position+","+eachEvent.Lentgh+"):"+getEventData(eachSubEQP, eachEvent.EventName, eachEvent.SubKey));
+						} catch (Exception e) {
+							logger.error("run EventData.substring error:" + e.getMessage() + " ---- "
+									+ eachEvent.EventName + eachEvent.SubKey + "-" + eachSubEQP + "("
+									+ eachEvent.Position + "," + eachEvent.Lentgh + "):"
+									+ getEventData(eachSubEQP, eachEvent.EventName, eachEvent.SubKey));
 							continue;
 						}
-						ItemData = ""+Integer.parseInt(ItemData, 2);
-						if(!eachEvent.StringMapping.containsKey("NUM")){
-							if(eachEvent.StringMapping.containsKey(ItemData)){
+						ItemData = "" + Integer.parseInt(ItemData, 2);
+						if (!eachEvent.StringMapping.containsKey("NUM")) {
+							if (eachEvent.StringMapping.containsKey(ItemData)) {
 								ItemData = eachEvent.StringMapping.get(ItemData);
 							}
 						}
-						
-						
+
 						ItemState eachEqp = new ItemState();
 						eachEqp.Fab = Fab;
-						eachEqp.ItemName = eachSubEQP+"."+eachEvent.ItemName;
+						eachEqp.ItemName = eachSubEQP + "." + eachEvent.ItemName;
 						eachEqp.ItemState = ItemData;
-						
-						pushList.add(eachEqp);		
-						
+
+						sourceObj.onRvMsg(eachEqp);
+
 						String WIPInfo = getWIP(eachSubEQP);
-						
 
 						eachEqp = new ItemState();
 						eachEqp.Fab = Fab;
-						eachEqp.ItemName = eachSubEQP+".WIP";
+						eachEqp.ItemName = eachSubEQP + ".WIP";
 						eachEqp.ItemState = WIPInfo;
-						
-						pushList.add(eachEqp);			
-						
+
+						sourceObj.onRvMsg(eachEqp);
+
 						String GlassList = getGlass(eachSubEQP);
-						
 
 						eachEqp = new ItemState();
 						eachEqp.Fab = Fab;
-						eachEqp.ItemName = eachSubEQP+".GLASS";
+						eachEqp.ItemName = eachSubEQP + ".GLASS";
 						eachEqp.ItemState = GlassList;
-						
-						pushList.add(eachEqp);			
-						
-						
-						
+
+						sourceObj.onRvMsg(eachEqp);
+
 					}
 				}
-				sourceObj.onRvMsg(pushList);
-			
-				
-				try{
+
+				try {
 					Thread.sleep(600000);
-				}catch(Exception e){
+				} catch (Exception e) {
 					logger.error("run EventData.sleep error:" + tools.StackTrace2String(e));
 				}
 			} catch (Exception e) {
 				logger.error("BC Refresh data error, exception=" + tools.StackTrace2String(e));
-				try{
+				try {
 					Thread.sleep(600000);
-				}catch(Exception e1){
+				} catch (Exception e1) {
 					logger.error("run EventData.sleep error:" + tools.StackTrace2String(e1));
 				}
 			}
@@ -160,75 +152,88 @@ public class BCData extends Thread {
 		}
 	}
 
-	// public void run() {
-	// long lastTime = 0;
-	// while (true) {
-	// if (System.currentTimeMillis() - lastTime > 5000) {
-	// this.updateEvent();
-	// this.updateWIPCount();
-	// lastTime = System.currentTimeMillis();
-	// }
-	// }
-	// }
 	public void updateGlassList() {
 
-		
+		Connection conn = null;
+		Statement stmt = null;
 		ResultSet rs = null;
-		String SQL = "select t.hostsubeqid subeqid, t.glassid glass" + "  from wipdata t"
-				+ " where t.updatetime > to_char(sysdate - 10, 'yyyy-mm-dd') And InUseFlag = 1";
-		rs = BCDB.Query(SQL);
 
+		String SQL = "";
 		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
+
+			SQL = "select t.hostsubeqid subeqid, t.glassid glass" + "  from wipdata t"
+					+ " where t.updatetime > to_char(sysdate - 10, 'yyyy-mm-dd') And InUseFlag = 1";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
 
 			while (rs.next()) {
 				synchronized (GlassList) {
 
 					if (GlassList.containsKey(rs.getString("subeqid"))) {
-						
+
 						List<String> tmp = GlassList.get(rs.getString("subeqid"));
-						if(tmp.size()<30){
-							tmp.add(rs.getString("glass"));	
+						if (tmp.size() < 30) {
+							tmp.add(rs.getString("glass"));
 						}
 					} else {
 						List<String> tmp = new ArrayList<String>();
 						tmp.add(rs.getString("glass"));
-						GlassList.put(rs.getString("subeqid"),tmp );
+						GlassList.put(rs.getString("subeqid"), tmp);
 					}
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			logger.error("updateGlassList while (rs.next()) error, exception=" + e.getMessage());
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
-			try {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
 
-				rs.getStatement().close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("updateGlassList rs.close error :" + e.getMessage());
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
 			}
 		}
 
 	}
 
 	public void updateWIPCount() {
-
+		Connection conn = null;
+		Statement stmt = null;
 		ResultSet rs = null;
-		String SQL = "select subeqid, WMSYS.WM_CONCAT(count)count" + " from (select t.hostsubeqid subeqid,"
-				+ "             nvl2(t.currentcstid,"
-				+ "'[' || t.currentcstid ||'(' || substr(t.hostportid,instr(t.hostportid,'.')+1) || ')]=' ||"
-				+ "                  to_char(count(t.hostsubeqid))," + "                  case"
-				+ "                    when t.bufferno = '0' then"
-				+ "                     '[IN EQP]=' || to_char(count(t.hostsubeqid))" + "                    else"
-				+ "                     '[BUFFER(' || to_char(t.bufferno) || ')]=' ||"
-				+ "                     to_char(count(t.hostsubeqid))" + "                  end) count"
-				+ "        from wipdata t" + "       where t.updatetime > to_char(sysdate - 100, 'yyyy-mm-dd') And InUseFlag = 1"
-				+ "       group by t.hostsubeqid, t.bufferno, t.currentcstid,t.hostportid)" + " group by subeqid";
-		rs = BCDB.Query(SQL);
 
+		String SQL = "";
 		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
 
+			SQL = "select subeqid, WMSYS.WM_CONCAT(count)count" + " from (select t.hostsubeqid subeqid,"
+					+ "             nvl2(t.currentcstid,"
+					+ "'[' || t.currentcstid ||'(' || substr(t.hostportid,instr(t.hostportid,'.')+1) || ')]=' ||"
+					+ "                  to_char(count(t.hostsubeqid))," + "                  case"
+					+ "                    when t.bufferno = '0' then"
+					+ "                     '[IN EQP]=' || to_char(count(t.hostsubeqid))" + "                    else"
+					+ "                     '[BUFFER(' || to_char(t.bufferno) || ')]=' ||"
+					+ "                     to_char(count(t.hostsubeqid))" + "                  end) count"
+					+ "        from wipdata t"
+					+ "       where t.updatetime > to_char(sysdate - 100, 'yyyy-mm-dd') And InUseFlag = 1"
+					+ "       group by t.hostsubeqid, t.bufferno, t.currentcstid,t.hostportid)" + " group by subeqid";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			
 			while (rs.next()) {
 				synchronized (WIP) {
 
@@ -245,27 +250,46 @@ public class BCData extends Thread {
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			logger.error("getSubEqpID while (rs.next()) error, exception=" + e.getMessage());
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
-			try {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
 
-				rs.getStatement().close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("getSubEqpID rs.close error :" + e.getMessage());
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
 			}
 		}
 
 	}
 
 	private void getSubEqpID() {
+		
+		Connection conn = null;
+		Statement stmt = null;
 		ResultSet rs = null;
-		String SQL = "select node.hostsubeqid subeqid from main_bc_line line,main_bc_node node where line.bcno = node.bcno and line.bclineno = node.bclineno and line.fabtype = node.fabtype and line.hostlineid='"
-				+ BCName + "'";
-		rs = BCDB.Query(SQL);
+
+		String SQL = "";
 		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
+
+			SQL = "select node.hostsubeqid subeqid from main_bc_line line,main_bc_node node where line.bcno = node.bcno and line.bclineno = node.bclineno and line.fabtype = node.fabtype and line.hostlineid='"
+					+ BCName + "'";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			
 			while (rs.next()) {
 				synchronized (SubEQPList) {
 					SubEQPList.add(rs.getString("subeqid"));
@@ -273,32 +297,51 @@ public class BCData extends Thread {
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			logger.error("getSubEqpID while (rs.next()) error, exception=" + e.getMessage());
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
-			try {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
 
-				rs.getStatement().close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("getSubEqpID rs.close error :" + e.getMessage());
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
 			}
 		}
+
 	}
 
 	public void updatePortInfo() {
+		
+		Connection conn = null;
+		Statement stmt = null;
 		ResultSet rs = null;
-		String SQL = "select node.hostsubeqid || '.' || port.hostportid || '.CSTID' subeqpid,"
-				+ "      to_char(substr(plc.outputdata, (port.bcportno - 1) * 20 + 301, 20)) state"
-				+ " from main_bc_line t, main_bc_node node, main_bc_port port, plcdata plc" + " where t.hostlineid = '"
-				+ BCName + "'" + "  and t.bcno = port.bcno" + "  and t.bclineno = port.bclineno"
-				+ "  and t.fabtype = port.fabtype" + "  and t.bcno = plc.bcno" + "  and t.bclineno = plc.bclineno"
-				+ "  and t.fabtype = plc.fabtype" + "  and t.bcno = node.bcno" + "  and t.bclineno = node.bclineno"
-				+ "  and t.fabtype = node.fabtype" + "  and port.nodeno = node.nodeno" + "  and plc.devicetype = '1'";
 
-		rs = BCDB.Query(SQL);
+		String SQL = "";
 		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
+
+			SQL = "select node.hostsubeqid || '.' || port.hostportid || '.CSTID' subeqpid,"
+					+ "      to_char(substr(plc.outputdata, (port.bcportno - 1) * 20 + 301, 20)) state"
+					+ " from main_bc_line t, main_bc_node node, main_bc_port port, plcdata plc" + " where t.hostlineid = '"
+					+ BCName + "'" + "  and t.bcno = port.bcno" + "  and t.bclineno = port.bclineno"
+					+ "  and t.fabtype = port.fabtype" + "  and t.bcno = plc.bcno" + "  and t.bclineno = plc.bclineno"
+					+ "  and t.fabtype = plc.fabtype" + "  and t.bcno = node.bcno" + "  and t.bclineno = node.bclineno"
+					+ "  and t.fabtype = node.fabtype" + "  and port.nodeno = node.nodeno" + "  and plc.devicetype = '1'";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			
 			while (rs.next()) {
 				String key = rs.getString("subeqpid");
 				String value = rs.getString("state").trim();
@@ -312,31 +355,51 @@ public class BCData extends Thread {
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			logger.error("updatePortInfo while (rs.next()) error, exception=" + e.getMessage());
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
-			try {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
 
-				rs.getStatement().close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("updatePortInfo rs.close error :" + e.getMessage());
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
 			}
 		}
+
+
 	}
 
 	public void updateHostMode() {
+		
+		Connection conn = null;
+		Statement stmt = null;
 		ResultSet rs = null;
-		String SQL = "select t.hostlineid || '.HostMode' subeqpid," + "      case"
-				+ "        when to_char(substr(plc.outputdata, 28, 1)) = '0' then" + "         'Off Line'"
-				+ "        when to_char(substr(plc.outputdata, 28, 1)) = '1' then" + "         'Online Control'"
-				+ "        else" + "         'Online Monitor'" + "      end state" + " from main_bc_line t, plcdata plc"
-				+ " where t.hostlineid = '" + BCName + "'" + "  and t.bcno = plc.bcno"
-				+ "  and t.bclineno = plc.bclineno" + "  and t.fabtype = plc.fabtype" + "  and plc.devicetype = '1'";
 
-		rs = BCDB.Query(SQL);
+		String SQL = "";
 		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
+
+			SQL = "select t.hostlineid || '.HostMode' subeqpid," + "      case"
+					+ "        when to_char(substr(plc.outputdata, 28, 1)) = '0' then" + "         'Off Line'"
+					+ "        when to_char(substr(plc.outputdata, 28, 1)) = '1' then" + "         'Online Control'"
+					+ "        else" + "         'Online Monitor'" + "      end state" + " from main_bc_line t, plcdata plc"
+					+ " where t.hostlineid = '" + BCName + "'" + "  and t.bcno = plc.bcno"
+					+ "  and t.bclineno = plc.bclineno" + "  and t.fabtype = plc.fabtype" + "  and plc.devicetype = '1'";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			
 			while (rs.next()) {
 				String key = rs.getString("subeqpid");
 				String value = rs.getString("state");
@@ -350,39 +413,58 @@ public class BCData extends Thread {
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			logger.error("updateHostMode while (rs.next()) error, exception=" + e.getMessage());
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
-			try {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
 
-				rs.getStatement().close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("updateHostMode rs.close error :" + e.getMessage());
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
 			}
 		}
+
 	}
 
 	public void updateInlineMode() {
+		
+		Connection conn = null;
+		Statement stmt = null;
 		ResultSet rs = null;
-		String SQL = "select t.hostlineid || '.InlineMode' subeqpid," + "      case"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '0' then" + "         'Normal'"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '1' then" + "         'Sort'"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '2' then" + "         'Dummy Laser Mode'"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '3' then" + "         'RUB Single Product'"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '4' then"
-				+ "         'RUB Double Product Single Dummy'"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '5' then"
-				+ "         'RUB Double Product Double Dummy'"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '6' then" + "         'Cycle Exchange'"
-				+ "        when to_char(substr(plc.outputdata, 26, 1)) = '7' then" + "         'Traffic'"
-				+ "        else" + "         'NonDefine'" + "      end state" + " from main_bc_line t, plcdata plc"
-				+ " where t.hostlineid = '" + BCName + "'" + "  and t.bcno = plc.bcno"
-				+ "  and t.bclineno = plc.bclineno" + "  and t.fabtype = plc.fabtype" + "  and plc.devicetype = '1'";
 
-		rs = BCDB.Query(SQL);
+		String SQL = "";
 		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
+
+			SQL = "select t.hostlineid || '.InlineMode' subeqpid," + "      case"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '0' then" + "         'Normal'"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '1' then" + "         'Sort'"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '2' then" + "         'Dummy Laser Mode'"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '3' then" + "         'RUB Single Product'"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '4' then"
+					+ "         'RUB Double Product Single Dummy'"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '5' then"
+					+ "         'RUB Double Product Double Dummy'"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '6' then" + "         'Cycle Exchange'"
+					+ "        when to_char(substr(plc.outputdata, 26, 1)) = '7' then" + "         'Traffic'"
+					+ "        else" + "         'NonDefine'" + "      end state" + " from main_bc_line t, plcdata plc"
+					+ " where t.hostlineid = '" + BCName + "'" + "  and t.bcno = plc.bcno"
+					+ "  and t.bclineno = plc.bclineno" + "  and t.fabtype = plc.fabtype" + "  and plc.devicetype = '1'";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			
 			while (rs.next()) {
 				String key = rs.getString("subeqpid");
 				String value = rs.getString("state");
@@ -396,63 +478,119 @@ public class BCData extends Thread {
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			logger.error("updateInlineMode while (rs.next()) error, exception=" + e.getMessage());
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
-			try {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
 
-				rs.getStatement().close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("updateInlineMode rs.close error :" + e.getMessage());
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
 			}
 		}
+
 	}
 
-	public void updateEvent(/*
-							 * Vector<String> subEqpList, Vector<String>
-							 * eventList
-							 */) {
+	public void updateEvent() {
 		getSubEqpID();
+		
+		Connection conn = null;
+		Statement stmt = null;
 		ResultSet rs = null;
-		String SQL = "select node.hostsubeqid," + "evt.funckey," + "evt.subfunckey,"
-				+ "to_char(substr(plc.outputdata,to_number(evt.startadr,'xxxxxxx')*4+1,evt.datalen*4))plcdata"
-				+ " from main_bc_line t, io_event evt, main_bc_node node, plcdata plc" + " where t.hostlineid = '"
-				+ BCName + "'" + " and t.bcno = evt.bcno" + " and t.bclineno = evt.bclineno"
-				+ " and t.fabtype = evt.fabtype" + " and t.bcno = node.bcno" + " and t.bclineno = node.bclineno"
-				+ " and t.fabtype = node.fabtype" + " and t.bcno = plc.bcno" + " and t.bclineno = plc.bclineno"
-				+ " and t.fabtype = plc.fabtype" + " and plc.devicetype = '2'" + " and evt.nodeno = node.nodeno";
-		// String tmpSubEqpList = "'";
-		// for (int i = 0; i < subEqpList.size(); i++) {
-		// if (i == 0) {
-		// tmpSubEqpList += subEqpList.get(i);
-		// } else {
-		// tmpSubEqpList += "','" + subEqpList.get(i);
-		// }
-		// }
-		// tmpSubEqpList += "'";
-		// SQL += " and node.hostsubeqid in (" + tmpSubEqpList + ")";
-		//
-		// String tmpEventList = "'";
-		// for (int i = 0; i < eventList.size(); i++) {
-		// if (i == 0) {
-		// tmpEventList += eventList.get(i);
-		// } else {
-		// tmpEventList += "','" + eventList.get(i);
-		// }
-		// }
-		// tmpEventList += "'";
-		// SQL += " and evt.funckey in (" + tmpEventList + ")";
-
-		rs = BCDB.Query(SQL);
+		String plcData = "";
+		
+		String SQL = "";
+		
+		
+		
 		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
+
+			SQL = "select plc.outputdata plcdata"
+					+"  from plcdata plc, main_bc_line t"
+					+" where t.hostlineid = '"+BCName+"'"
+					+"   and t.bcno = plc.bcno"
+					+"   and t.bclineno = plc.bclineno"
+					+"   and t.fabtype = plc.fabtype"
+					+"   and plc.devicetype = '2'";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			
+			while (rs.next()) {
+				plcData = rs.getString("plcdata");
+				
+			}
+		} catch (Exception e) {
+			logger.error(tools.StackTrace2String(e));
+
+		} finally {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
+
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+		}
+		
+		if(plcData.equals("")){
+			logger.error("PLC data is empty");
+			return;
+		}
+		
+		
+		try {
+			conn = BCDB.getConnection();
+			stmt = conn.createStatement();
+
+			SQL = "select node.hostsubeqid,"
+					+"       evt.funckey,"
+					+"       evt.subfunckey,"
+					+"       evt.startadr,"
+					+"       evt.datalen"
+					+"  from main_bc_line t, io_event evt, main_bc_node node"
+					+" where t.hostlineid = '"+BCName+"'"
+					+"   and t.bcno = evt.bcno"
+					+"   and t.bclineno = evt.bclineno"
+					+"   and t.fabtype = evt.fabtype"
+					+"   and t.bcno = node.bcno"
+					+"   and t.bclineno = node.bclineno"
+					+"   and t.fabtype = node.fabtype"
+					+"   and evt.nodeno = node.nodeno";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			
 			while (rs.next()) {
 				String key = rs.getString("hostsubeqid") + rs.getString("funckey") + rs.getString("subfunckey");
-				String HexPlcData = rs.getString("plcdata");
+				int start = new BigInteger(rs.getString("startadr"), 16).intValue()*4;
+				int len = rs.getInt("datalen")*4;
+				
+				String HexPlcData = plcData.substring(start, start+len) ;
 				int binLegth = HexPlcData.length() * 4;
 
-				String BinPlcData = new BigInteger(rs.getString("plcdata"), 16).toString(2);
+				String BinPlcData = new BigInteger(HexPlcData, 16).toString(2);
 
 				if (binLegth != BinPlcData.length()) {
 					String formatStr = "%0" + (binLegth - BinPlcData.length()) + "d";
@@ -469,19 +607,27 @@ public class BCData extends Thread {
 				}
 			}
 		} catch (Exception e) {
-			// TODO Auto-generated catch block
-			logger.error("updateEvent while (rs.next()) error,BC=" + BCName + " exception=" + e.getMessage() + " SQL="
-					+ SQL);
+			logger.error(tools.StackTrace2String(e));
 
 		} finally {
-			try {
+			if (stmt != null) {
+				try {
+					stmt.close();
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
+			}
+			if (conn != null) {
+				try {
 
-				rs.getStatement().close();
-			} catch (Exception e) {
-				// TODO Auto-generated catch block
-				logger.error("updateEvent rs.close error :" + e.getMessage());
+					BCDB.closeConnection(conn);
+
+				} catch (SQLException e) {
+					logger.error(tools.StackTrace2String(e));
+				}
 			}
 		}
+
 
 	}
 
@@ -511,19 +657,19 @@ public class BCData extends Thread {
 		String key = subEqp;
 		String result = " ";
 		synchronized (GlassList) {
-			
+
 			if (GlassList.containsKey(key)) {
 				List<String> tmp = GlassList.get(key);
-				for(String each : tmp){
-					if(result==null){
+				for (String each : tmp) {
+					if (result == null) {
 						result = "";
 					}
-					if(result.equals("")){
+					if (result.equals("")) {
 						result = each;
-					}else{
+					} else {
 						result += "," + each;
 					}
-					
+
 				}
 			}
 		}

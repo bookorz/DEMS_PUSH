@@ -1,13 +1,8 @@
 package com.innolux.dems.source;
 
-import java.util.Vector;
-
 import org.apache.log4j.Logger;
-import org.json.JSONArray;
-import org.json.JSONObject;
-
 import com.innolux.dems.DBConnector;
-import com.innolux.dems.interfaces.CallBackInterface;
+import com.innolux.dems.GlobleVar;
 import com.innolux.dems.interfaces.ItemState;
 import com.innolux.dems.interfaces.ParserInterface;
 
@@ -25,19 +20,13 @@ public class Mes extends Thread {
 		Fab = _Fab;
 		switch (_Fab) {
 		case "ARRAY":
-			MesDB = new DBConnector(
-					"jdbc:oracle:thin:@(DESCRIPTION =    (ADDRESS_LIST =      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.1)(PORT = 1521))      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.2)(PORT = 1521))      (LOAD_BALANCE = yes)    )    (CONNECT_DATA =      (SERVER = DEDICATED)      (SERVICE_NAME = t2pary)    )  )",
-					"aryprod", "aryprod");
+			MesDB = GlobleVar.ARRAYMesDB;
 			break;
 		case "CF":
-			MesDB = new DBConnector(
-					"jdbc:oracle:thin:@(DESCRIPTION =    (ADDRESS_LIST =      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.1)(PORT = 1521))      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.2)(PORT = 1521))      (LOAD_BALANCE = yes)    )    (CONNECT_DATA =      (SERVER = DEDICATED)      (SERVICE_NAME = t2pcft)    )  )",
-					"cftprod", "cftprod");
+			MesDB = GlobleVar.CFMesDB;
 			break;
 		case "CELL":
-			MesDB = new DBConnector(
-					"jdbc:oracle:thin:@(DESCRIPTION =    (ADDRESS_LIST =      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.1)(PORT = 1521))      (ADDRESS = (PROTOCOL = TCP)(HOST = 172.20.9.2)(PORT = 1521))      (LOAD_BALANCE = yes)    )    (CONNECT_DATA =      (SERVER = DEDICATED)      (SERVICE_NAME = t2pcel)    )  )",
-					"celprod", "celprod");
+			MesDB = GlobleVar.CELLMesDB;
 			break;
 		}
 	}
@@ -51,7 +40,11 @@ public class Mes extends Thread {
 		CurrentState eqpDate = new CurrentState(MesDB,Fab);
 
 		while (true) {
-			Vector<ItemState> pushList = new Vector<ItemState>();
+			
+			for(ItemState eachstate:eqpDate.getAllStates()){
+				sourceObj.onRvMsg(eachstate);
+			}
+			
 			if (Fab.equals("ARRAY")) {
 				stockerData.updateStockerData();
 				for (String eachStocker : stockerData.getStockerInfoKeys()) {
@@ -62,8 +55,8 @@ public class Mes extends Thread {
 						eachStk.ItemName = eachStockerInfo.EquipmentName;
 						eachStk.ItemState = "I:" + eachStockerInfo.transferInstk + " O:" + eachStockerInfo.transferOutstk + " E:"
 								+ eachStockerInfo.Emptycst + " " + eachStockerInfo.fullratio;
-
-						pushList.add(eachStk);
+						sourceObj.onRvMsg(eachStk);
+						
 					}
 
 				}
@@ -80,18 +73,19 @@ public class Mes extends Thread {
 					eachPortInfo.Fab = Fab;
 					eachPortInfo.ItemName = eachPortCSTInfo.PortID;
 					eachPortInfo.ItemState = eachPortCSTInfo.CassetteID;
-								
-					pushList.add(eachPortInfo);
+					sourceObj.onRvMsg(eachPortInfo);
+					
 				}
 
 			}
 			
 			
+			
 
 			
-			sourceObj.onRvMsg(pushList);
+			
 			try {
-				Thread.sleep(30000);
+				Thread.sleep(60000);
 			} catch (Exception e) {
 				Tools tools = new Tools();
 				logger.error(tools.StackTrace2String(e));

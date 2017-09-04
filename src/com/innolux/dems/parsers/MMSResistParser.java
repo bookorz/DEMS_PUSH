@@ -1,15 +1,9 @@
 package com.innolux.dems.parsers;
 
-import java.util.Vector;
-
 import org.apache.log4j.Logger;
-import org.json.JSONObject;
-
 import com.innolux.dems.interfaces.CallBackInterface;
-import com.innolux.dems.interfaces.ItemState;
 import com.innolux.dems.interfaces.MMSMsg;
 import com.innolux.dems.interfaces.MMSParserInterface;
-import com.innolux.dems.interfaces.ParserInterface;
 import com.innolux.dems.source.Tools;
 
 public class MMSResistParser implements CallBackInterface {
@@ -23,9 +17,9 @@ public class MMSResistParser implements CallBackInterface {
 	}
 	
 	@Override
-	public void onRvMsg(Vector<String> msgList) {
+	public void onRvMsg(String msg) {
 		// TODO Auto-generated method stub
-		for(String msg:msgList){
+		
 			if (msg.indexOf("class=MMSResistInUseRep") == -1) {
 				return;
 			}
@@ -33,7 +27,7 @@ public class MMSResistParser implements CallBackInterface {
 			
 			sourceObj.onRvMsg(result);
 			
-		}
+		
 	}
 	
 	private MMSMsg parseMsg(String orgMsg) {

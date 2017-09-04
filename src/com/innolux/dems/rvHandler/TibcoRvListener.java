@@ -1,11 +1,8 @@
 package com.innolux.dems.rvHandler;
 
-import java.util.Vector;
-
 import org.apache.log4j.Logger;
 
 import com.innolux.dems.interfaces.CallBackInterface;
-import com.innolux.dems.interfaces.ParserInterface;
 import com.innolux.dems.source.Tools;
 import com.tibco.tibrv.*;
 
@@ -15,7 +12,7 @@ public class TibcoRvListener extends Thread implements TibrvMsgCallback {
 	private String subject;
 	private String service;
 	private String network;
-	private Vector<String> msgCol = new Vector<String>();
+	
 
 	private CallBackInterface sourceObj;
 
@@ -92,12 +89,12 @@ public class TibcoRvListener extends Thread implements TibrvMsgCallback {
 				logger.debug("RVListener onMsg:" + data);
 
 				//sourceObj.onRvMsg(data);
-				msgCol.add(data);
-				if(Tibrv.defaultQueue().getCount()==0){
-					sourceObj.onRvMsg(msgCol);
+				//msgCol.add(data);
+				//if(Tibrv.defaultQueue().getCount()==0){
+					sourceObj.onRvMsg(data);
 				
-					msgCol = new Vector<String>();
-				}
+					//msgCol = new Vector<String>();
+				//}
 			}
 		} catch (Exception e) {
 			Tools tools = new Tools();

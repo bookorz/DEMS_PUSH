@@ -1,128 +1,81 @@
 package com.innolux.dems;
-import java.sql.*;
+
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
+import java.util.ArrayList;
+import java.util.List;
 
 import org.apache.log4j.Logger;
 
 import com.innolux.dems.source.Tools;
-public class DBConnector {
-	public Connection con = null;
-    public String _connectionStr="";
-    public String _User="";
-    public String _PWD="";
-    
-    
-	public Logger logger = Logger.getLogger(this.getClass());
-	
 
-	public DBConnector(String connectionStr, String User, String PWD) {
-		_connectionStr = connectionStr;
-		_User=User;
-		_PWD=PWD;
+public class DBConnector implements DBSource {
+
+	private String url;
+	private String user;
+	private String passwd;
+	private int max; // 連接池中最大Connection數目
+	private List<ConnectionInfo> connections;
+	private Tools tools = new Tools();
+	private Logger logger = Logger.getLogger(this.getClass());
+
+	public class ConnectionInfo {
+		public long LastTime = 0;
+		public Connection conn = null;
+	}
+
+	public DBConnector(String connectionStr, String User, String PWD, int maxConn) {
+		url = connectionStr;
+		user = User;
+		passwd = PWD;
+		max = maxConn;
 		try {
-			// step1 load the driver class
 			Class.forName("oracle.jdbc.driver.OracleDriver");
-			
-			// step2 create the connection object
-		
-			con = DriverManager.getConnection(connectionStr, User, PWD);
-			// "jdbc:oracle:thin:@172.20.9.32:1521:t2prpt"
-			
 		} catch (Exception e) {
-			Tools tools = new Tools();
-			logger.error("get Connection failed, conStr=" + connectionStr + " User=" + User + " PWD=" + PWD
-					+ "exception=" + tools.StackTrace2String(e));
+			logger.error(url);
+			logger.error(tools.StackTrace2String(e));
 		}
+
+		connections = new ArrayList<ConnectionInfo>();
 	}
 
-	public ResultSet Query(String SQL) {
-
-		// String strSQL;
-		// step3 create the statement object
-		Statement stmt = null;
-		ResultSet rs = null;
+	public synchronized Connection getConnection() throws SQLException {
+		ConnectionInfo con = null;
 		try {
-			try{
-			stmt = con.createStatement();
+			if (connections.size() == 0) {
+				return DriverManager.getConnection(url, user, passwd);
+			} else {
+				int lastIndex = connections.size() - 1;
+				con = connections.remove(lastIndex);
+				if (!con.conn.isValid(5)) {
 
-			// step4 execute query
-			// SQL="select * from rfidcurrentsts t ";
-		    rs = stmt.executeQuery(SQL);
-			}catch(NullPointerException|SQLException e){
-				
-				logger.error("SQL Query failed, exception=" + e);
-				logger.error("Reconnect to DB:"+_connectionStr);
-				con = DriverManager.getConnection(_connectionStr, _User, _PWD);
-				stmt = con.createStatement();
-			    rs = stmt.executeQuery(SQL);
+					con.conn = DriverManager.getConnection(url, user, passwd);
+				}
+				if (System.currentTimeMillis() - con.LastTime > 3600000) {
+					con.conn = DriverManager.getConnection(url, user, passwd);
+				}
 			}
-			return rs;
-		} catch (Exception ex) {
-			Tools tools = new Tools();
-			logger.error("SQL Query failed, exception=" + tools.StackTrace2String(ex));
-			logger.error("SQL Query failed, SQL=" + SQL);
-//			try {
-//				if(con!=null)
-//				con.close();
-//				con = DriverManager.getConnection(_connectionStr, _User, _PWD);
-//				
-//				stmt = con.createStatement();
-//				stmt.setQueryTimeout(10000);
-//				rs = stmt.executeQuery(SQL);
-//				return rs;
-//			} catch (SQLException e) {
-//				// TODO Auto-generated catch block
-//				logger.error("SQL Query failed, exception=" + e);
-				return null;
-//			}
-			
-			
-		} finally {
-//			try {
-//				
-//				stmt.close();
-//				
-//			} catch (SQLException e) {
-//				// TODO Auto-generated catch block
-//				logger.error("Statement close failed, exception=" + e.getMessage());
-//			}
+		} catch (Exception e) {
+			logger.error(url);
+			logger.error(tools.StackTrace2String(e));
 		}
+		return con.conn;
 	}
 
-	@SuppressWarnings("resource")
-	public void Execute(String SQL) {
-		// Type:insert,Updata
-		Statement stmt = null;
+	public synchronized void closeConnection(Connection conn) throws SQLException {
 		try {
-			
-			stmt = con.createStatement();
-//			stmt = con.createStatement();
-			stmt.execute(SQL);
-
-		} catch (Exception ex) {
-			Tools tools = new Tools();
-			logger.error("SQL Execute failed, exception=" + tools.StackTrace2String(ex));
-			logger.error("SQL Query failed, SQL=" + SQL);
-			try {
-				con.close();
-				con = DriverManager.getConnection(_connectionStr, _User, _PWD);
-				
-				stmt = con.createStatement();
-				stmt.execute(SQL);
-				
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				logger.error("SQL Query failed, exception=" + e);
-				
+			if (connections.size() == max) {
+				conn.close();
+			} else {
+				ConnectionInfo conInfo = new ConnectionInfo();
+				conInfo.conn = conn;
+				conInfo.LastTime = System.currentTimeMillis();
+				connections.add(conInfo);
 			}
-		} finally {
-			try {
-				stmt.close();
-			} catch (SQLException e) {
-				// TODO Auto-generated catch block
-				logger.error("Statement close failed, exception=" + e.getMessage());
-			}
+		} catch (Exception e) {
+			logger.error(url);
+			logger.error(tools.StackTrace2String(e));
 		}
-		
-
 	}
 }

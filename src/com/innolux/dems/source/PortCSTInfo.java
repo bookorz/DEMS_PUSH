@@ -59,8 +59,11 @@ public class PortCSTInfo {
 				PortCST eachPort = new PortCST();
 				String key = rs.getString("name");
 				eachPort.PortID = key;
-				eachPort.CassetteID = rs.getString("carrierid");
-
+				if(rs.getString("carrierid")==null){
+					eachPort.CassetteID = "";
+				}else{
+					eachPort.CassetteID = rs.getString("carrierid");
+				}
 				synchronized (PortCSTInfoList) {
 					if (PortCSTInfoList.containsKey(key)) {
 						PortCSTInfoList.remove(key);

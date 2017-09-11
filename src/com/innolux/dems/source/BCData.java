@@ -14,7 +14,7 @@ import java.util.Vector;
 import org.apache.log4j.Logger;
 import com.innolux.dems.DBConnector;
 import com.innolux.dems.interfaces.ItemState;
-import com.innolux.dems.interfaces.ParserInterface;
+import com.innolux.dems.interfaces.UpdateInterface;
 
 public class BCData extends Thread {
 	private Logger logger = Logger.getLogger(this.getClass());
@@ -30,9 +30,9 @@ public class BCData extends Thread {
 	public Vector<FunctionAttribute> PushEventList = new Vector<FunctionAttribute>();
 	private Tools tools = new Tools();
 
-	private ParserInterface sourceObj;
+	private UpdateInterface sourceObj;
 
-	public BCData(String _BCName, String _BCIP, String _Fab, ParserInterface _sourceObj) {
+	public BCData(String _BCName, String _BCIP, String _Fab, UpdateInterface _sourceObj) {
 		BCName = _BCName;
 
 		BCIP = _BCIP;
@@ -46,6 +46,7 @@ public class BCData extends Thread {
 
 	public void run() {
 		while (true) {
+			Vector<ItemState> ItemStateList = new Vector<ItemState>();
 			try {
 				updateEvent();
 				updateWIPCount();
@@ -62,7 +63,7 @@ public class BCData extends Thread {
 					eachEqp.Fab = Fab;
 					eachEqp.ItemName = key;
 					eachEqp.ItemState = value;
-					sourceObj.onRvMsg(eachEqp);
+					ItemStateList.add(eachEqp);
 
 				}
 
@@ -96,7 +97,7 @@ public class BCData extends Thread {
 						eachEqp.ItemName = eachSubEQP + "." + eachEvent.ItemName;
 						eachEqp.ItemState = ItemData;
 
-						sourceObj.onRvMsg(eachEqp);
+						ItemStateList.add(eachEqp);
 
 						String WIPInfo = getWIP(eachSubEQP);
 
@@ -105,7 +106,7 @@ public class BCData extends Thread {
 						eachEqp.ItemName = eachSubEQP + ".WIP";
 						eachEqp.ItemState = WIPInfo;
 
-						sourceObj.onRvMsg(eachEqp);
+						ItemStateList.add(eachEqp);
 
 						String GlassList = getGlass(eachSubEQP);
 
@@ -113,11 +114,13 @@ public class BCData extends Thread {
 						eachEqp.Fab = Fab;
 						eachEqp.ItemName = eachSubEQP + ".GLASS";
 						eachEqp.ItemState = GlassList;
-
-						sourceObj.onRvMsg(eachEqp);
+						ItemStateList.add(eachEqp);
+						
 
 					}
 				}
+				
+				sourceObj.onRvMsg(ItemStateList);
 
 				try {
 					Thread.sleep(600000);

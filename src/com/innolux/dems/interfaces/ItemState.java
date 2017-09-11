@@ -8,6 +8,7 @@ public class ItemState {
 
 	public String ItemType = "";
 	public String ItemMode = "";
+	public String ItemAlert = "";
 	public String UpdateType = "";
 	public String UpdateValue = "";
 

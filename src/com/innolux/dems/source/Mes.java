@@ -1,22 +1,26 @@
 package com.innolux.dems.source;
 
+import java.util.Vector;
+
 import org.apache.log4j.Logger;
 import com.innolux.dems.DBConnector;
 import com.innolux.dems.GlobleVar;
 import com.innolux.dems.interfaces.ItemState;
-import com.innolux.dems.interfaces.ParserInterface;
+import com.innolux.dems.interfaces.UpdateInterface;
 
 import type.PortCST;
 import type.StockerInfo;
 
 public class Mes extends Thread {
 	private Logger logger = Logger.getLogger(this.getClass());
-	private ParserInterface sourceObj;
+	private UpdateInterface State;
+	private UpdateInterface Status;
 	private String Fab = "";
 	private DBConnector MesDB = null;
 
-	public Mes(ParserInterface _sourceObj, String _Fab) {
-		sourceObj = _sourceObj;
+	public Mes(UpdateInterface _State,UpdateInterface _Status, String _Fab) {
+		Status = _Status;
+		State= _State;
 		Fab = _Fab;
 		switch (_Fab) {
 		case "ARRAY":
@@ -40,10 +44,10 @@ public class Mes extends Thread {
 		CurrentState eqpDate = new CurrentState(MesDB,Fab);
 
 		while (true) {
+			Vector<ItemState> ItemStateList = new Vector<ItemState>();
 			
-			for(ItemState eachstate:eqpDate.getAllStates()){
-				sourceObj.onRvMsg(eachstate);
-			}
+			State.onRvMsg(eqpDate.getAllStates());
+			
 			
 			if (Fab.equals("ARRAY")) {
 				stockerData.updateStockerData();
@@ -55,14 +59,14 @@ public class Mes extends Thread {
 						eachStk.ItemName = eachStockerInfo.EquipmentName;
 						eachStk.ItemState = "I:" + eachStockerInfo.transferInstk + " O:" + eachStockerInfo.transferOutstk + " E:"
 								+ eachStockerInfo.Emptycst + " " + eachStockerInfo.fullratio;
-						sourceObj.onRvMsg(eachStk);
+						ItemStateList.add(eachStk);
 						
 					}
 
 				}
 				
 				
-				eqpDate.GetEQMode();
+				Status.onRvMsg(eqpDate.GetEQMode());
 				
 			}
 			portCSTInfo.updatePortCSTInfo();
@@ -73,13 +77,13 @@ public class Mes extends Thread {
 					eachPortInfo.Fab = Fab;
 					eachPortInfo.ItemName = eachPortCSTInfo.PortID;
 					eachPortInfo.ItemState = eachPortCSTInfo.CassetteID;
-					sourceObj.onRvMsg(eachPortInfo);
+					ItemStateList.add(eachPortInfo);
 					
 				}
 
 			}
 			
-			
+			State.onRvMsg(ItemStateList);
 			
 
 			

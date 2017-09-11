@@ -1,17 +1,19 @@
 package com.innolux.dems.parsers;
 
+import java.util.Vector;
+
 import org.apache.log4j.Logger;
 import com.innolux.dems.interfaces.CallBackInterface;
 import com.innolux.dems.interfaces.ItemState;
-import com.innolux.dems.interfaces.ParserInterface;
+import com.innolux.dems.interfaces.UpdateInterface;
 import com.innolux.dems.source.Tools;
 
 public class MCDParser implements CallBackInterface {
-	private ParserInterface sourceObj;
+	private UpdateInterface sourceObj;
 	private String fab = "";
 	private Logger logger = Logger.getLogger(this.getClass());
 
-	public MCDParser(ParserInterface _sourceObj, String _fab) {
+	public MCDParser(UpdateInterface _sourceObj, String _fab) {
 		sourceObj = _sourceObj;
 		fab = _fab;
 		
@@ -25,7 +27,9 @@ public class MCDParser implements CallBackInterface {
 		
 		ItemState result = parseMsg(msg);
 		if (result!=null) {
-			sourceObj.onRvMsg(result);
+			Vector<ItemState> ItemStateList = new Vector<ItemState>();
+			ItemStateList.add(result);
+			sourceObj.onRvMsg(ItemStateList);
 		}
 	}
 
@@ -62,6 +66,7 @@ public class MCDParser implements CallBackInterface {
 						result.ItemName = ID;
 						result.UpdateValue = "true";
 						result.UpdateType = "Item_Alert";
+						
 					}
 					
 				} catch (Exception e) {

@@ -52,7 +52,7 @@ public class DBConnector implements DBSource {
 
 					con.conn = DriverManager.getConnection(url, user, passwd);
 				}
-				if (System.currentTimeMillis() - con.LastTime > 3600000) {
+				if (System.currentTimeMillis() - con.LastTime > 900000) {
 					con.conn = DriverManager.getConnection(url, user, passwd);
 				}
 			}

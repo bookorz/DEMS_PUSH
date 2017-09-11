@@ -9,14 +9,16 @@ import java.util.Vector;
 import org.apache.log4j.Logger;
 import com.innolux.dems.DBConnector;
 import com.innolux.dems.interfaces.ItemState;
-import com.innolux.dems.output.UpdateStatus;
 
 public class CurrentState {
 	DBConnector MesDB = null;
 	String Fab = "";
 	private Tools tools = new Tools();
 	private Logger logger = Logger.getLogger(this.getClass());
-	private String LastUpdateTime = "20010101 120000000";
+	private String LastEQPUpdateTime = "20010101 120000000";
+	private String LastSubEQPUpdateTime = "20010101 120000000";
+	private String LastChamberUpdateTime = "20010101 120000000";
+	private String LastPortUpdateTime = "20010101 120000000";
 
 	public CurrentState(DBConnector DB, String _Fab) {
 		Fab = _Fab;
@@ -38,33 +40,20 @@ public class CurrentState {
 			conn = MesDB.getConnection();
 			stmt = conn.createStatement();
 
-			SQL = "select *"
-					+"  from (select t1.EQUIPMENTNAME EQUIPMENTNAME, t2.VALDATA STATE, t1.time"
+			SQL = "select t1.EQUIPMENTNAME EQUIPMENTNAME, t2.VALDATA STATE, t1.time"
 					+"          from fweqpcurrentstate t1, fweqpcurrentstate_pn2m t2"
 					+"         where t1.SYSID = t2.FROMID"
 					+"           and t2.keydata = 'EQPREPORT'"
-					+"        union"
-					+"        select t1.name, t2.valdata, t1.time"
-					+"          from fweqpsubeqp t1, fweqpsubeqp_pn2m t2"
-					+"         where t1.SYSID = t2.FROMID"
-					+"           and t2.keydata = 'EQPREPORT'"
-					+"        union"
-					+"        select t1.name, t2.valdata, t1.time"
-					+"          from fweqpchamber t1, fweqpchamber_pn2m t2"
-					+"         where t1.SYSID = t2.FROMID"
-					+"           and t2.keydata = 'EQPREPORT'"
-					+"        union"
-					+"        select name, state, time from fweqpport)"
-					+" where time >= '"+LastUpdateTime+"'"
+					+" and time >= '"+this.LastEQPUpdateTime+"'"
 					+" order by time desc";
 			logger.debug(SQL);
 
 			rs = stmt.executeQuery(SQL);
-			boolean isGetTime = false;
+			this.LastEQPUpdateTime = "";
 			while (rs.next()) {
-				if(!isGetTime){
-					this.LastUpdateTime = rs.getString("time");
-					isGetTime = true;
+				if(this.LastEQPUpdateTime.equals("")){
+					this.LastEQPUpdateTime = rs.getString("time");
+					
 				}
 				ItemState eachEqp = new ItemState();
 				eachEqp.Fab = Fab;
@@ -74,6 +63,79 @@ public class CurrentState {
 			
 				pushList.add(eachEqp);
 			}
+			
+			SQL = "select t1.name EQUIPMENTNAME, t2.valdata STATE, t1.time"
+					+"          from fweqpsubeqp t1, fweqpsubeqp_pn2m t2"
+					+"         where t1.SYSID = t2.FROMID"
+					+"           and t2.keydata = 'EQPREPORT'"
+					+" and time >= '"+this.LastSubEQPUpdateTime+"'"
+					+" order by time desc";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			this.LastSubEQPUpdateTime = "";
+			while (rs.next()) {
+				if(this.LastSubEQPUpdateTime.equals("")){
+					this.LastSubEQPUpdateTime = rs.getString("time");
+					
+				}
+				ItemState eachEqp = new ItemState();
+				eachEqp.Fab = Fab;
+				eachEqp.ItemName = rs.getString("EQUIPMENTNAME");
+				eachEqp.ItemState = rs.getString("STATE");
+				eachEqp.ItemStateUpdateTime = rs.getString("time").substring(0,rs.getString("time").length()-3);				
+			
+				pushList.add(eachEqp);
+			}
+			
+			SQL = "select t1.name EQUIPMENTNAME, t2.valdata STATE, t1.time"
+					+"          from fweqpchamber t1, fweqpchamber_pn2m t2"
+					+"         where t1.SYSID = t2.FROMID"
+					+"           and t2.keydata = 'EQPREPORT'"
+					+" and time >= '"+this.LastChamberUpdateTime+"'"
+					+" order by time desc";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			this.LastChamberUpdateTime = "";
+			while (rs.next()) {
+				if(this.LastChamberUpdateTime.equals("")){
+					this.LastChamberUpdateTime = rs.getString("time");
+					
+				}
+				ItemState eachEqp = new ItemState();
+				eachEqp.Fab = Fab;
+				eachEqp.ItemName = rs.getString("EQUIPMENTNAME");
+				eachEqp.ItemState = rs.getString("STATE");
+				eachEqp.ItemStateUpdateTime = rs.getString("time").substring(0,rs.getString("time").length()-3);				
+			
+				pushList.add(eachEqp);
+			}
+			
+			SQL = "select name EQUIPMENTNAME, state STATE, time from fweqpport"
+					+" where time >= '"+this.LastPortUpdateTime+"'"
+					+" order by time desc";
+			logger.debug(SQL);
+
+			rs = stmt.executeQuery(SQL);
+			this.LastPortUpdateTime = "";
+			while (rs.next()) {
+				if(this.LastPortUpdateTime.equals("")){
+					this.LastPortUpdateTime = rs.getString("time");
+					
+				}
+				ItemState eachEqp = new ItemState();
+				eachEqp.Fab = Fab;
+				eachEqp.ItemName = rs.getString("EQUIPMENTNAME");
+				eachEqp.ItemState = rs.getString("STATE");
+				eachEqp.ItemStateUpdateTime = rs.getString("time").substring(0,rs.getString("time").length()-3);				
+			
+				pushList.add(eachEqp);
+			}
+			
+			
+			
+			
 		} catch (Exception e) {
 			logger.error(tools.StackTrace2String(e));
 
@@ -99,11 +161,11 @@ public class CurrentState {
 		return pushList;
 	}
 	
-	public void GetEQMode() {
+	public Vector<ItemState> GetEQMode() {
 		Connection conn = null;
 		Statement stmt = null;
 		ResultSet rs = null;
-		
+		Vector<ItemState> pushList = new Vector<ItemState>();
 		
 		String SQL = "";
 		try {
@@ -119,7 +181,7 @@ public class CurrentState {
 			logger.debug(SQL);
 
 			rs = stmt.executeQuery(SQL);
-			UpdateStatus updateStatus = new UpdateStatus();
+			
 			while (rs.next()) {
 				ItemState eachEqp = new ItemState();
 				eachEqp.Fab = Fab;
@@ -128,8 +190,8 @@ public class CurrentState {
 				eachEqp.UpdateValue = rs.getString("capability");
 				
 			
+				pushList.add(eachEqp);
 				
-				updateStatus.Update2DB(eachEqp);
 			}
 		} catch (Exception e) {
 			logger.error(tools.StackTrace2String(e));
@@ -153,7 +215,7 @@ public class CurrentState {
 			}
 		}
 		
-		
+		return pushList;
 
 	}
 }

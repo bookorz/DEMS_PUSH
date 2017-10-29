@@ -3,7 +3,6 @@ package com.innolux.dems.parsers;
 import java.util.Vector;
 
 import org.apache.log4j.Logger;
-import com.innolux.dems.GlobleVar;
 import com.innolux.dems.interfaces.CallBackInterface;
 import com.innolux.dems.interfaces.ItemState;
 import com.innolux.dems.interfaces.UpdateInterface;
@@ -17,79 +16,91 @@ public class EqpStateParser implements CallBackInterface {
 	public EqpStateParser(UpdateInterface _sourceObj, String _fab) {
 		sourceObj = _sourceObj;
 		fab = _fab;
-		
-		
-		
+
 	}
 
 	@Override
 	public void onRvMsg(String msg) {
 		// TODO Auto-generated method stub
-		
-		ItemState result = parseMsg(msg);
-		//if (result.size()!=0) {
-		if(result!=null){
-			if(GlobleVar.CheckState(result)){
-				Vector<ItemState> ItemStateList = new Vector<ItemState>();
-				ItemStateList.add(result);
-				sourceObj.onRvMsg(ItemStateList);
-				
-			}
+
+		Vector<ItemState> result = parseMsg(msg);
+		// if (result.size()!=0) {
+		if (result != null) {
+
+			sourceObj.onRvMsg(result);
+
 		}
-		//}
+
+		// }
 	}
 
-	private ItemState parseMsg(String orgMsg) {
+	private Vector<ItemState> parseMsg(String orgMsg) {
 
 		try {
-			ItemState result = new ItemState();
-		    //Hashtable<String,String> tmpStateCol = new Hashtable<String,String>();
-			//for (String orgMsg : orgMsgList) {
-				try {
-					
-						
-					if (orgMsg.indexOf("subEqpID=\"") == -1) {
-						return null;
-					}
-					int idxEqp = orgMsg.indexOf("subEqpID=\"") + 10;
-					int idxEnd = orgMsg.indexOf("\"", idxEqp + 1);
-					String ID = orgMsg.substring(idxEqp, idxEnd);
+			Vector<ItemState> result = new Vector<ItemState>();
+			// Hashtable<String,String> tmpStateCol = new
+			// Hashtable<String,String>();
+			// for (String orgMsg : orgMsgList) {
+			try {
 
-					String eqpStatus = "";
-					if (orgMsg.indexOf("newState=\"") != -1) {
-						String target2 = "newState=\"";
-
-						int target2_startIdx = orgMsg.indexOf(target2) + target2.length();
-						int target2_endIdx = orgMsg.indexOf("\"", target2_startIdx);
-						eqpStatus = orgMsg.substring(target2_startIdx, target2_endIdx);
-					} else {
-						logger.error("parse error:newState is not exist, original Message:" + orgMsg);
-						return null;
-					}
-
-					
-					result.Fab = fab;
-					result.ItemName = ID;
-					result.ItemState = eqpStatus;
-
-					
-				} catch (Exception e) {
-					Tools tools = new Tools();
-					logger.error("parse error:" + tools.StackTrace2String(e));
+				if (orgMsg.indexOf("MESStatusReport_E14") == -1) {
 					return null;
 				}
-			//}
-			
-			
-			
-			
-			
+				if (orgMsg.indexOf("alleqstateinfo=\"") == -1) {
+					return null;
+				}
+				
+				String startText = "subEqpID=\"";
+				int idxBegin = orgMsg.indexOf(startText) + startText.length();
+				int idxEnd = orgMsg.indexOf("\"", idxBegin + 1);
+				String subEqpID = orgMsg.substring(idxBegin, idxEnd);
+				
+				startText = "newState=\"";
+				idxBegin = orgMsg.indexOf(startText) + startText.length();
+				idxEnd = orgMsg.indexOf("\"", idxBegin + 1);
+				String newState = orgMsg.substring(idxBegin, idxEnd);
+				
+				
+				ItemState state = new ItemState();
+				state.Fab = fab;
+				state.ItemName = subEqpID;
+				state.ItemState = newState;
+				result.add(state);
+
+			    idxBegin = orgMsg.indexOf("alleqstateinfo=\"") + 16;
+				idxEnd = orgMsg.indexOf("\"", idxBegin + 1);
+				String stateStr = orgMsg.substring(idxBegin, idxEnd);
+				String[] stateAry = stateStr.split(",");
+				
+				for(String eachPair : stateAry){
+					String[] eachState = eachPair.split("=");
+					if(eachState.length==2){
+						ItemState subState = new ItemState();
+						subState.Fab = fab;
+						subState.ItemName = eachState[0];
+						if(subState.ItemName.indexOf("00")!= -1){
+							continue;
+						}else if(subEqpID.equals(state.ItemName)){
+							continue;
+						}
+						result.add(state);
+					}
+				}
+
+				
+
+			} catch (Exception e) {
+				Tools tools = new Tools();
+				logger.error("parse error:" + tools.StackTrace2String(e));
+				return null;
+			}
+			// }
 
 			return result;
 		} catch (Exception e) {
 			Tools tools = new Tools();
 			logger.error("parse error:" + tools.StackTrace2String(e));
-			return new ItemState();
+			return null;
 		}
 	}
 

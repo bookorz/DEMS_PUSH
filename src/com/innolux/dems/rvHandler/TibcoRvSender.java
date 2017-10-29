@@ -46,7 +46,7 @@ public class TibcoRvSender {
 			msg.update("DATA", data);
 			logger.info(msg);
 			transport.send(msg);
-
+			transport.destroy();
 		} catch (TibrvException e) {
 			logger.error(e.getMessage());
 		}

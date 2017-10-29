@@ -1,8 +1,9 @@
 package com.innolux.dems;
-import java.sql.Connection;
 import java.sql.SQLException;
 
+import com.innolux.dems.DBConnector.ConnectionInfo;
+
 public interface DBSource {
-    public Connection getConnection() throws SQLException;
-    public void closeConnection(Connection conn) throws SQLException;
+    public ConnectionInfo getConnection() throws SQLException;
+    public void closeConnection(ConnectionInfo conn) throws SQLException;
 }

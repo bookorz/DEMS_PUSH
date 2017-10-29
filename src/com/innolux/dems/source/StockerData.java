@@ -1,27 +1,55 @@
 package com.innolux.dems.source;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.util.Hashtable;
 import java.util.Set;
+import java.util.Vector;
 
 import org.apache.log4j.Logger;
 
 import com.innolux.dems.DBConnector;
+import com.innolux.dems.DBConnector.ConnectionInfo;
+import com.innolux.dems.interfaces.ItemState;
+import com.innolux.dems.output.UpdateState;
+import com.innolux.dems.output.UpdateStatus;
 
 import type.StockerInfo;
 
-public class StockerData {
+public class StockerData extends Thread{
 	private Logger logger = Logger.getLogger(this.getClass());
 	private Hashtable<String, StockerInfo> StockerInfoList = new Hashtable<String, StockerInfo>();
 	DBConnector MesDB = null;
 	private Tools tools = new Tools();
+	private String Fab = "";
 	
-	public StockerData(DBConnector DB){
-		
+	
+	public StockerData(DBConnector DB,String _Fab){
+		Fab = _Fab;
+	
 		MesDB= DB;
+	}
+	
+	public void run() {
+		Vector<ItemState> ItemStateList = new Vector<ItemState>();
+		updateStockerData();
+		for (String eachStocker : getStockerInfoKeys()) {
+			StockerInfo eachStockerInfo = getStockerInfo(eachStocker);
+			if (eachStockerInfo != null) {
+				ItemState eachStk = new ItemState();
+				eachStk.Fab = Fab;
+				eachStk.ItemName = eachStockerInfo.EquipmentName;
+				eachStk.ItemState = "I:" + eachStockerInfo.transferInstk + " O:"
+						+ eachStockerInfo.transferOutstk + " E:" + eachStockerInfo.Emptycst + " "
+						+ eachStockerInfo.fullratio;
+				ItemStateList.add(eachStk);
+
+			}
+
+		}
+		new UpdateState().onRvMsg(ItemStateList);
+		
 	}
 	
 	public Set<String> getStockerInfoKeys(){
@@ -40,14 +68,14 @@ public class StockerData {
 	} 
 	
 	public void updateStockerData(){
-		Connection conn = null;
+		ConnectionInfo conn = null;
 		Statement stmt = null;
 		ResultSet rs = null;
 
 		String SQL = "";
 		try {
 			conn = MesDB.getConnection();
-			stmt = conn.createStatement();
+			stmt = conn.conn.createStatement();
 
 			SQL = "select t.equipmentname || '.STKINFO' equipmentname,"+
 					"       sum(case"+
@@ -86,6 +114,7 @@ public class StockerData {
 					}
 				}
 			}
+			rs.close();
 		} catch (Exception e) {
 			logger.error(tools.StackTrace2String(e));
 

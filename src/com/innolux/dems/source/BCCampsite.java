@@ -2,7 +2,6 @@ package com.innolux.dems.source;
 
 import java.io.BufferedReader;
 import java.io.FileReader;
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -14,6 +13,7 @@ import org.json.JSONArray;
 import org.json.JSONObject;
 
 import com.innolux.dems.DBConnector;
+import com.innolux.dems.DBConnector.ConnectionInfo;
 import com.innolux.dems.GlobleVar;
 
 class FunctionAttribute {
@@ -110,14 +110,14 @@ public class BCCampsite {
 		GetPushEventList();
 		DBConnector DEMS = GlobleVar.DEMS;
 
-		Connection conn = null;
+		ConnectionInfo conn = null;
 		Statement stmt = null;
 		ResultSet rs = null;
 
 		String SQL = "";
 		try {
 			conn = DEMS.getConnection();
-			stmt = conn.createStatement();
+			stmt = conn.conn.createStatement();
 
 			SQL = "select t.bc_name,t.ip from dems_bcip t where t.fab='" + fab + "'";
 			logger.debug(SQL);
@@ -133,6 +133,7 @@ public class BCCampsite {
 					BCList.put(rs.getString("bc_name"), eachBC);
 				}
 			}
+			rs.close();
 		} catch (Exception e) {
 			logger.error(tools.StackTrace2String(e));
 

@@ -61,11 +61,7 @@ public class TibcoRvListener extends Thread implements TibrvMsgCallback {
 		// dispatch Tibrv events
 		while (true) {
 			try {
-				if(Tibrv.defaultQueue().getCount()==0){
-					
-					Thread.sleep(10000);
-					
-				}
+				
 				Tibrv.defaultQueue().dispatch();
 				logger.info("RV queue count: " + Tibrv.defaultQueue().getCount() + " subject:" + subject);
 				

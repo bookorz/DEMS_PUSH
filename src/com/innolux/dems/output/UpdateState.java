@@ -1,6 +1,5 @@
 package com.innolux.dems.output;
 
-import java.sql.Connection;
 import java.sql.ResultSet;
 import java.sql.SQLException;
 import java.sql.Statement;
@@ -8,6 +7,7 @@ import java.util.Vector;
 
 import org.apache.log4j.Logger;
 import com.innolux.dems.DBConnector;
+import com.innolux.dems.DBConnector.ConnectionInfo;
 import com.innolux.dems.GlobleVar;
 import com.innolux.dems.interfaces.ItemState;
 import com.innolux.dems.interfaces.UpdateInterface;
@@ -29,15 +29,16 @@ public class UpdateState implements UpdateInterface {
 	private void Update2DB(Vector<ItemState> ItemList) {
 
 		boolean isChange = false;
-		Connection conn = null;
+		ConnectionInfo conn = null;
 		Statement stmt = null;
 		ResultSet rs = null;
 		int rowCount = 0;
 		String SQL = "";
+		int numUpd;
 
 		try {
 			conn = DEMS.getConnection();
-			stmt = conn.createStatement();
+			stmt = conn.conn.createStatement();
 			for (ItemState eachItem : ItemList) {
 				
 				ItemState old = GlobleVar.GetStatus(eachItem);
@@ -52,7 +53,7 @@ public class UpdateState implements UpdateInterface {
 
 				rs = stmt.executeQuery(SQL);
 
-				logger.debug(SQL);
+				rowCount = 0;
 				while (rs.next()) {
 					rowCount++;
 					if (eachItem.ItemState == null) {
@@ -62,7 +63,7 @@ public class UpdateState implements UpdateInterface {
 						isChange = true;
 					}
 				}
-				
+				rs.close();
 
 				if (rowCount != 0) {
 					if (isChange) {
@@ -78,7 +79,7 @@ public class UpdateState implements UpdateInterface {
 									+ "' and t.item_name = '" + eachItem.ItemName + "'";
 						}
 						logger.debug(SQL);
-						stmt.executeUpdate(SQL);
+						numUpd = stmt.executeUpdate(SQL);
 						
 					}
 				} else {
@@ -93,7 +94,7 @@ public class UpdateState implements UpdateInterface {
 					}
 					logger.debug(SQL);
 					
-					stmt.executeUpdate(SQL);
+					numUpd = stmt.executeUpdate(SQL);
 					
 				}
 			}
